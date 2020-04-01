@@ -1,0 +1,48 @@
+sudo: required
+dist: xenial
+language: go
+
+go: "1.14.x"
+
+services:
+  - docker
+
+branches:
+  only:
+    - master
+
+stages:
+  - lint
+  - build
+  - test
+
+jobs:
+  include:
+    - stage: lint
+      name: Lint
+      script: make lint
+
+    - stage: build
+      name: Build
+      script: make build
+
+    - stage: test
+      name: Unit tests
+      script: make test-unit
+    - name: End to end tests
+      script: make test-e2e
+
+deploy:
+  - provider: script
+    env:
+      - VERSION=${TRAVIS_TAG:-latest}
+    before_script: 
+      docker login -u "$QUAY_USERNAME" --password-stdin quay.io <<< "$QUAY_PASSWORD"
+    script:
+      make container
+      docker push quay.io/dgrisonnet/kube-events-exporter:$VERSION
+    after_script:
+      docker logout quay.io
+    on:
+      branch: master
+      tags: true
