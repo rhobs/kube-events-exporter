@@ -7,11 +7,15 @@ VERSION?=$(shell cat VERSION)
 all: lint build
 
 .PHONY: lint
-lint:
+lint: check-license
 	@docker run --rm -v $(shell pwd):/app:ro \
 					 -w /app \
 					 golangci/golangci-lint:$(GOLANGCI_VERSION) \
 					 golangci-lint run -v
+
+.PHONY: check-license
+check-license:
+	./scripts/check_license.sh
 
 .PHONY: build
 build: kube-events-exporter
