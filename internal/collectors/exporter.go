@@ -21,6 +21,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/rhobs/kube-events-exporter/internal/version"
 )
 
 // InstrumentMetricHandler is a middleware that wraps the provided http.Handler
@@ -53,4 +54,19 @@ func InstrumentMetricHandler(registry *prometheus.Registry, handler http.Handler
 			promhttp.InstrumentHandlerCounter(requestsTotal, handler),
 		),
 	)
+}
+
+// RegisterVersionCollector registers a Gauge metric describing the exporter
+// version.
+func RegisterVersionCollector(registry *prometheus.Registry) {
+	exporterVersion := prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "kube_events_exporter_version",
+		Help: "Version of the exporter.",
+		ConstLabels: map[string]string{
+			"version": version.GetVersion(),
+		},
+	})
+	exporterVersion.Set(1)
+
+	registry.MustRegister(exporterVersion)
 }

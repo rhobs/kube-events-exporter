@@ -1,5 +1,6 @@
 GOARCH?=$(shell go env GOARCH)
 GOOS?=$(shell uname -s | tr A-Z a-z)
+REPO=github.com/rhobs/kube-events-exporter
 VERSION?=$(shell cat VERSION)
 DOCKER_REPO?=quay.io/dgrisonnet/kube-events-exporter
 
@@ -37,7 +38,7 @@ build: kube-events-exporter
 
 .PHONY: kube-events-exporter
 kube-events-exporter:
-	GOOS=$(GOOS) GOARCH=$(GOARCH) CGO_ENABLED=0 go build -ldflags "-s -w"
+	GOOS=$(GOOS) GOARCH=$(GOARCH) CGO_ENABLED=0 go build -ldflags "-s -w -X $(REPO)/internal/version.version=$(VERSION)" ./cmd/$@
 
 .PHONY: container
 container: build
