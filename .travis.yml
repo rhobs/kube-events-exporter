@@ -36,15 +36,17 @@ jobs:
     - stage: deploy
       name: Deploy image to quay.io
       script: skip
-      env:
-        - VERSION=${TRAVIS_TAG:-latest}
       before_deploy:
         - docker login -u "$QUAY_USERNAME" --password-stdin quay.io <<< "$QUAY_PASSWORD"
       deploy:
-        provider: script
-        script: make container-push
-        on:
-          tags: true
-          branch: master
+        - provider: script
+          script: VERSION=latest make container-push
+          on:
+            branch: master
+        - provider: script
+          script: VERSION=$TRAVIS_TAG make container-push
+          on:
+            tags: true
+            all_branches: true
       after_deploy:
         docker logout quay.io
