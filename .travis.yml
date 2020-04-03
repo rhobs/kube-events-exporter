@@ -1,4 +1,4 @@
-sudo: required
+os: linux
 dist: xenial
 language: go
 
@@ -15,6 +15,7 @@ stages:
   - lint
   - build
   - test
+  - deploy
 
 jobs:
   include:
@@ -32,17 +33,18 @@ jobs:
     - name: End to end tests
       script: make test-e2e
 
-deploy:
-  - provider: script
-    env:
-      - VERSION=${TRAVIS_TAG:-latest}
-    before_script: 
-      docker login -u "$QUAY_USERNAME" --password-stdin quay.io <<< "$QUAY_PASSWORD"
-    script:
-      make container
-      docker push quay.io/dgrisonnet/kube-events-exporter:$VERSION
-    after_script:
-      docker logout quay.io
-    on:
-      branch: master
-      tags: true
+    - stage: deploy
+      name: Deploy image to quay.io
+      script: skip
+      env:
+        - VERSION=${TRAVIS_TAG:-latest}
+      before_deploy:
+        - docker login -u "$QUAY_USERNAME" --password-stdin quay.io <<< "$QUAY_PASSWORD"
+      deploy:
+        provider: script
+        script: make container-push
+        on:
+          tags: true
+          branch: master
+      after_deploy:
+        docker logout quay.io

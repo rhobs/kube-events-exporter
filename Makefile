@@ -26,8 +26,12 @@ kube-events-exporter:
 	GOOS=$(GOOS) GOARCH=$(GOARCH) CGO_ENABLED=0 go build -ldflags "-s -w"
 
 .PHONY: container
-container:
+container: build
 	docker build -t $(DOCKER_REPO):$(VERSION) .
+
+.PHONY: container-push
+container-push: container
+	docker push $(DOCKER_REPO):$(VERSION)
 
 .PHONY: test
 test: test-unit test-e2e
