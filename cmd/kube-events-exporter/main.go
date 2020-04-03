@@ -16,5 +16,10 @@ limitations under the License.
 
 package main
 
+import (
+	"github.com/rhobs/kube-events-exporter/internal/http"
+)
+
 func main() {
+	http.ServeMetrics("0.0.0.0", "8080")
 }
