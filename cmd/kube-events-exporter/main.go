@@ -17,9 +17,28 @@ limitations under the License.
 package main
 
 import (
+	"fmt"
+	"os"
+
 	"github.com/rhobs/kube-events-exporter/internal/http"
+	"github.com/rhobs/kube-events-exporter/internal/options"
+	"github.com/rhobs/kube-events-exporter/internal/version"
+	"k8s.io/klog"
 )
 
 func main() {
-	http.ServeMetrics("0.0.0.0", "8080")
+	opts := options.NewOptions()
+	opts.AddFlags()
+
+	err := opts.Parse()
+	if err != nil {
+		klog.Fatalf("Error: %s", err)
+	}
+
+	if opts.Version {
+		fmt.Printf("%#v\n", version.GetVersion())
+		os.Exit(0)
+	}
+
+	http.ServeMetrics(opts.Host, opts.Port)
 }
