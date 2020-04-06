@@ -37,8 +37,13 @@ const (
 func ServeExporterMetrics(host string, port int) {
 	registry := prometheus.NewRegistry()
 
-	// Add exporter version collector to the registry.
-	collectors.RegisterVersionCollector(registry)
+	registry.MustRegister(
+		// Add the standard process and Go metrics to the registry.
+		prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{}),
+		prometheus.NewGoCollector(),
+		// Add exporter version collector to the registry.
+		collectors.NewExporterVersionCollector(),
+	)
 
 	// Address to listen on for web interface and telemetry.
 	listenAddress := net.JoinHostPort(host, strconv.Itoa(port))

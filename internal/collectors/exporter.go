@@ -56,9 +56,9 @@ func InstrumentMetricHandler(registry *prometheus.Registry, handler http.Handler
 	)
 }
 
-// RegisterVersionCollector registers a Gauge metric describing the exporter
+// NewExporterVersionCollector returns a Gauge metric describing the exporter
 // version.
-func RegisterVersionCollector(registry *prometheus.Registry) {
+func NewExporterVersionCollector() prometheus.Collector {
 	exporterVersion := prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "kube_events_exporter_version",
 		Help: "Version of the exporter.",
@@ -68,5 +68,5 @@ func RegisterVersionCollector(registry *prometheus.Registry) {
 	})
 	exporterVersion.Set(1)
 
-	registry.MustRegister(exporterVersion)
+	return exporterVersion
 }

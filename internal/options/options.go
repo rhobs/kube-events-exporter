@@ -53,8 +53,8 @@ func (o *Options) AddFlags() {
 		o.flags.PrintDefaults()
 	}
 
-	o.flags.StringVar(&o.ExporterHost, "exporter-host", "0.0.0.0", `Host to expose kube-events-exporter self metrics on.`)
-	o.flags.IntVar(&o.ExporterPort, "exporter-port", 8081, `Port to expose kube-events-exporter self metrics on.`)
+	o.flags.StringVar(&o.ExporterHost, "exporter-host", "0.0.0.0", `Host to expose kube-events-exporter own metrics on.`)
+	o.flags.IntVar(&o.ExporterPort, "exporter-port", 8081, `Port to expose kube-events-exporter own metrics on.`)
 	o.flags.BoolVar(&o.Version, "version", false, "kube-events-exporter version information")
 }
 
