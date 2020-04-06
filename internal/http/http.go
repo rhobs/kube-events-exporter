@@ -24,6 +24,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rhobs/kube-events-exporter/internal/collectors"
+
 	"k8s.io/klog"
 )
 
@@ -31,8 +32,9 @@ const (
 	metricsPath = "/metrics"
 )
 
-// ServeMetrics registers collectors and start serving metrics on metricPath.
-func ServeMetrics(host string, port int) {
+// ServeExporterMetrics registers collectors and start serving exporter self
+// metrics on metricsPath.
+func ServeExporterMetrics(host string, port int) {
 	registry := prometheus.NewRegistry()
 
 	// Add exporter version collector to the registry.

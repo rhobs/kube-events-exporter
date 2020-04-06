@@ -23,6 +23,7 @@ import (
 	"github.com/rhobs/kube-events-exporter/internal/http"
 	"github.com/rhobs/kube-events-exporter/internal/options"
 	"github.com/rhobs/kube-events-exporter/internal/version"
+
 	"k8s.io/klog"
 )
 
@@ -40,5 +41,5 @@ func main() {
 		os.Exit(0)
 	}
 
-	http.ServeMetrics(opts.Host, opts.Port)
+	http.ServeExporterMetrics(opts.ExporterHost, opts.ExporterPort)
 }
