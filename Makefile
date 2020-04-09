@@ -20,7 +20,7 @@ check-license:
 
 .PHONY: lint-go
 lint-go: $(GOLANGCI_BIN)
-	$(GOLANGCI_BIN) run -v
+	./scripts/golangci-lint.sh
 
 .PHONY: build
 build: kube-events-exporter
