@@ -18,12 +18,15 @@ package main
 
 import (
 	"fmt"
+	"net"
+	"net/http"
 	"os"
+	"strconv"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/rhobs/kube-events-exporter/internal/http"
+	"github.com/rhobs/kube-events-exporter/internal/exporter"
+	exporterhttp "github.com/rhobs/kube-events-exporter/internal/http"
 	"github.com/rhobs/kube-events-exporter/internal/options"
-	reg "github.com/rhobs/kube-events-exporter/internal/registry"
 	"github.com/rhobs/kube-events-exporter/internal/version"
 
 	"k8s.io/klog"
@@ -43,12 +46,29 @@ func main() {
 		os.Exit(0)
 	}
 
-	registry := prometheus.NewRegistry()
-	exporterRegistry := reg.NewExporterRegistry()
+	eventsRegistry := prometheus.NewRegistry()
+	exporterRegistry := prometheus.NewRegistry()
+	exporter.RegisterExporterCollectors(exporterRegistry)
+
+	eventsMux := http.NewServeMux()
+	exporterhttp.RegisterEventsMuxHandlers(eventsMux, eventsRegistry, exporterRegistry)
+	exporterMux := http.NewServeMux()
+	exporterhttp.RegisterExporterMuxHandlers(exporterMux, exporterRegistry)
+
+	eventsListenAddr := net.JoinHostPort(opts.Host, strconv.Itoa(opts.Port))
+	eventsListener, err := net.Listen("tcp", eventsListenAddr)
+	if err != nil {
+		klog.Fatalf("Could not start listening on: %v: %v", eventsListenAddr, err)
+	}
+	exporterListenAddr := net.JoinHostPort(opts.ExporterHost, strconv.Itoa(opts.ExporterPort))
+	exporterListener, err := net.Listen("tcp", exporterListenAddr)
+	if err != nil {
+		klog.Fatalf("Could not start listening on: %v: %v", eventsListenAddr, err)
+	}
 
 	// Serve metrics about the exporter.
-	go http.ServeExporterMetrics(opts.ExporterHost, opts.ExporterPort, exporterRegistry)
+	go klog.Fatal(http.Serve(exporterListener, exporterMux))
 
 	// Serve metrics about Kubernetes Events.
-	http.ServeEventsMetrics(opts.Host, opts.Port, registry, exporterRegistry)
+	klog.Fatal(http.Serve(eventsListener, eventsMux))
 }

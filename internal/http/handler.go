@@ -14,15 +14,35 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package collectors
+package http
 
 import (
 	"net/http"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/rhobs/kube-events-exporter/internal/version"
 )
+
+const (
+	metricsPath = "/metrics"
+)
+
+// RegisterExporterMuxHandlers registers the handlers needed to serve the
+// exporter self metrics.
+func RegisterExporterMuxHandlers(mux *http.ServeMux, exporterRegistry *prometheus.Registry) {
+	metricsHandler := promhttp.HandlerFor(exporterRegistry, promhttp.HandlerOpts{})
+	mux.Handle(metricsPath, metricsHandler)
+}
+
+// RegisterEventsMuxHandlers registers the handlers needed to serve metrics
+// about Kubernetes Events.
+func RegisterEventsMuxHandlers(mux *http.ServeMux, eventsRegistry *prometheus.Registry, exporterRegistry *prometheus.Registry) {
+	// Instrument metricsPath handler and register it inside the exporterRegistry.
+	metricsHandler := InstrumentMetricHandler(exporterRegistry,
+		promhttp.HandlerFor(eventsRegistry, promhttp.HandlerOpts{}),
+	)
+	mux.Handle(metricsPath, metricsHandler)
+}
 
 // InstrumentMetricHandler is a middleware that wraps the provided http.Handler
 // to observe requests sent to the exporter.
@@ -40,7 +60,7 @@ func InstrumentMetricHandler(registry *prometheus.Registry, handler http.Handler
 	requestDuration := prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Name: "kube_events_exporter_request_duration_seconds",
 		Help: "Duration of all scrapes.",
-	}, []string{"code"})
+	}, []string{})
 
 	registry.MustRegister(
 		requestsTotal,
@@ -48,25 +68,9 @@ func InstrumentMetricHandler(registry *prometheus.Registry, handler http.Handler
 		requestDuration,
 	)
 
-	return promhttp.InstrumentHandlerDuration(
-		requestDuration.MustCurryWith(prometheus.Labels{"code": "200"}),
+	return promhttp.InstrumentHandlerDuration(requestDuration,
 		promhttp.InstrumentHandlerInFlight(requestsInFlight,
 			promhttp.InstrumentHandlerCounter(requestsTotal, handler),
 		),
 	)
-}
-
-// NewExporterVersionCollector returns a Gauge metric describing the exporter
-// version.
-func NewExporterVersionCollector() prometheus.Collector {
-	exporterVersion := prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "kube_events_exporter_version",
-		Help: "Version of the exporter.",
-		ConstLabels: map[string]string{
-			"version": version.GetVersion(),
-		},
-	})
-	exporterVersion.Set(1)
-
-	return exporterVersion
 }

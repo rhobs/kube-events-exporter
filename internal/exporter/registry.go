@@ -14,29 +14,24 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package registry
+package exporter
 
 import (
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/rhobs/kube-events-exporter/internal/collectors"
 )
 
-// NewExporterRegistry returns a prometheus.Registry containing the following
-// collectors:
+// RegisterExporterCollectors register the following collectors in the given
+// prometheus.Registry:
 //   - prometheus.NewProcessCollector
 //   - prometheus.NewGoCollector
 //   - collectors.NewExporterVersionCollector
-// This registry is intended to be used to expose metrics about the exporter.
-func NewExporterRegistry() *prometheus.Registry {
-	registry := prometheus.NewRegistry()
-
+// This is intended to be used to expose metrics about the exporter.
+func RegisterExporterCollectors(registry *prometheus.Registry) {
 	registry.MustRegister(
 		// Add the standard process and Go metrics to the registry.
 		prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{}),
 		prometheus.NewGoCollector(),
 		// Add exporter version collector to the registry.
-		collectors.NewExporterVersionCollector(),
+		NewExporterVersionCollector(),
 	)
-
-	return registry
 }
