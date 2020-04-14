@@ -21,9 +21,9 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rhobs/kube-events-exporter/internal/collectors"
+	"github.com/rhobs/kube-events-exporter/internal/registry"
 
 	"k8s.io/klog"
 )
@@ -35,15 +35,7 @@ const (
 // ServeExporterMetrics registers collectors and start serving exporter self
 // metrics on metricsPath.
 func ServeExporterMetrics(host string, port int) {
-	registry := prometheus.NewRegistry()
-
-	registry.MustRegister(
-		// Add the standard process and Go metrics to the registry.
-		prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{}),
-		prometheus.NewGoCollector(),
-		// Add exporter version collector to the registry.
-		collectors.NewExporterVersionCollector(),
-	)
+	registry := registry.NewExporterRegistry()
 
 	// Address to listen on for web interface and telemetry.
 	listenAddress := net.JoinHostPort(host, strconv.Itoa(port))
