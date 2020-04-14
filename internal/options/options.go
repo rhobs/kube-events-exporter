@@ -27,6 +27,8 @@ import (
 
 // Options are the configurable parameters for kube-events-exporter.
 type Options struct {
+	Host         string
+	Port         int
 	ExporterHost string
 	ExporterPort int
 	Version      bool
@@ -53,6 +55,8 @@ func (o *Options) AddFlags() {
 		o.flags.PrintDefaults()
 	}
 
+	o.flags.StringVar(&o.Host, "host", "0.0.0.0", `Host to expose Events metrics on.`)
+	o.flags.IntVar(&o.Port, "port", 8080, `Port to expose Events metrics on.`)
 	o.flags.StringVar(&o.ExporterHost, "exporter-host", "0.0.0.0", `Host to expose kube-events-exporter own metrics on.`)
 	o.flags.IntVar(&o.ExporterPort, "exporter-port", 8081, `Port to expose kube-events-exporter own metrics on.`)
 	o.flags.BoolVar(&o.Version, "version", false, "kube-events-exporter version information")

@@ -20,8 +20,10 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rhobs/kube-events-exporter/internal/http"
 	"github.com/rhobs/kube-events-exporter/internal/options"
+	reg "github.com/rhobs/kube-events-exporter/internal/registry"
 	"github.com/rhobs/kube-events-exporter/internal/version"
 
 	"k8s.io/klog"
@@ -41,5 +43,12 @@ func main() {
 		os.Exit(0)
 	}
 
-	http.ServeExporterMetrics(opts.ExporterHost, opts.ExporterPort)
+	registry := prometheus.NewRegistry()
+	exporterRegistry := reg.NewExporterRegistry()
+
+	// Serve metrics about the exporter.
+	go http.ServeExporterMetrics(opts.ExporterHost, opts.ExporterPort, exporterRegistry)
+
+	// Serve metrics about Kubernetes Events.
+	http.ServeEventsMetrics(opts.Host, opts.Port, registry, exporterRegistry)
 }

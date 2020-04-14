@@ -21,9 +21,9 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rhobs/kube-events-exporter/internal/collectors"
-	"github.com/rhobs/kube-events-exporter/internal/registry"
 
 	"k8s.io/klog"
 )
@@ -32,22 +32,31 @@ const (
 	metricsPath = "/metrics"
 )
 
-// ServeExporterMetrics registers collectors and start serving exporter self
-// metrics on metricsPath.
-func ServeExporterMetrics(host string, port int) {
-	registry := registry.NewExporterRegistry()
-
-	// Address to listen on for web interface and telemetry.
-	listenAddress := net.JoinHostPort(host, strconv.Itoa(port))
-
-	klog.Infof("Starting exporter metrics server: %s", listenAddress)
+// ServeExporterMetrics serves exporter self metrics on metricsPath.
+func ServeExporterMetrics(host string, port int, registry *prometheus.Registry) {
 	mux := http.NewServeMux()
 
-	// Add instrumented metricsPath.
-	metricsHandler := collectors.InstrumentMetricHandler(registry,
+	metricsHandler := promhttp.HandlerFor(registry, promhttp.HandlerOpts{})
+	mux.Handle(metricsPath, metricsHandler)
+
+	listenAddress := net.JoinHostPort(host, strconv.Itoa(port))
+
+	klog.Infof("Starting exporter self metrics server: %s.", listenAddress)
+	klog.Fatal(http.ListenAndServe(listenAddress, mux))
+}
+
+// ServeEventsMetrics serves metrics about Kubernetes Events on metricPath.
+func ServeEventsMetrics(host string, port int, registry *prometheus.Registry, exporterRegistry *prometheus.Registry) {
+	mux := http.NewServeMux()
+
+	// Instrument metricsPath handler and register it inside the exporterRegistry.
+	metricsHandler := collectors.InstrumentMetricHandler(exporterRegistry,
 		promhttp.HandlerFor(registry, promhttp.HandlerOpts{}),
 	)
 	mux.Handle(metricsPath, metricsHandler)
 
+	listenAddress := net.JoinHostPort(host, strconv.Itoa(port))
+
+	klog.Infof("Starting Events metrics server: %s.", listenAddress)
 	klog.Fatal(http.ListenAndServe(listenAddress, mux))
 }
