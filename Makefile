@@ -4,12 +4,22 @@ VERSION?=$(shell cat VERSION)
 DOCKER_REPO?=quay.io/dgrisonnet/kube-events-exporter
 
 BIN_DIR?=$(shell pwd)/tmp/bin
-
 GOLANGCI_BIN=$(BIN_DIR)/golangci-lint
 TOOLING=$(GOLANGCI_BIN)
 
+GOMOD_DIRS=. scripts
+
 .PHONY: all
 all: lint build test
+
+.PHONY: vendor
+vendor:
+	@for dir in $(GOMOD_DIRS); do \
+		cd $$dir; \
+		go mod tidy; \
+		go mod vendor; \
+		go mod verify; \
+	done
 
 .PHONY: lint
 lint: check-license lint-go
