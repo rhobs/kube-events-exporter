@@ -1,22 +1,26 @@
 GOARCH?=$(shell go env GOARCH)
 GOOS?=$(shell uname -s | tr A-Z a-z)
-GOLANGCI_VERSION?=v1.24.0
 VERSION?=$(shell cat VERSION)
 DOCKER_REPO?=quay.io/dgrisonnet/kube-events-exporter
+
+BIN_DIR?=$(shell pwd)/tmp/bin
+
+GOLANGCI_BIN=$(BIN_DIR)/golangci-lint
+TOOLING=$(GOLANGCI_BIN)
 
 .PHONY: all
 all: lint build test
 
 .PHONY: lint
-lint: check-license
-	@docker run --rm -v $(shell pwd):/app:ro \
-					 -w /app \
-					 golangci/golangci-lint:$(GOLANGCI_VERSION) \
-					 golangci-lint run -v
+lint: check-license lint-go
 
 .PHONY: check-license
 check-license:
 	./scripts/check_license.sh
+
+.PHONY: lint-go
+lint-go: $(GOLANGCI_BIN)
+	./scripts/golangci-lint.sh
 
 .PHONY: build
 build: kube-events-exporter
@@ -47,3 +51,10 @@ test-e2e:
 .PHONY: clean
 clean:
 	git clean -Xfd .
+
+$(BIN_DIR):
+	mkdir -p $(BIN_DIR)
+
+$(TOOLING): $(BIN_DIR)
+	@echo Installing tools from scripts/tools.go
+	@cd scripts && cat tools.go | grep _ | awk -F'"' '{print $$2}' | xargs -tI % go build -o $(BIN_DIR) %
