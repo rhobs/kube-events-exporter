@@ -18,12 +18,17 @@ package collector
 
 import (
 	"github.com/prometheus/client_golang/prometheus"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/informers"
+	"k8s.io/client-go/tools/cache"
 )
 
 // EventCollector is a prometeus.Collector that bundles all the metrics related
 // to Kubernetes Events.
 type EventCollector struct {
 	eventsTotal *prometheus.CounterVec
+
+	informerFactory informers.SharedInformerFactory
 }
 
 // NewEventCollector returns a prometheus.Collector collecting metrics about
@@ -45,4 +50,32 @@ func (collector *EventCollector) Describe(ch chan<- *prometheus.Desc) {
 // Collect implements the prometheus.Collector interface.
 func (collector *EventCollector) Collect(ch chan<- prometheus.Metric) {
 	collector.eventsTotal.Collect(ch)
+}
+
+// WithInformerFactory adds a informers.SharedInformerFactory to the collector.
+func (collector *EventCollector) WithInformerFactory(factory informers.SharedInformerFactory) {
+	collector.informerFactory = factory
+}
+
+// Run starts updating EventCollector metrics.
+func (collector *EventCollector) Run(stopCh <-chan struct{}) {
+	eventsTotalInformer := collector.informerFactory.Core().V1().Events().Informer()
+	eventsTotalInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			collector.increaseEventsTotal(obj.(*v1.Event))
+		},
+		UpdateFunc: func(obj, _ interface{}) {
+			collector.increaseEventsTotal(obj.(*v1.Event))
+		},
+	})
+	go collector.informerFactory.Start(stopCh)
+}
+
+func (collector *EventCollector) increaseEventsTotal(event *v1.Event) {
+	collector.eventsTotal.With(prometheus.Labels{
+		"type":                      event.Type,
+		"involved_object_namespace": event.InvolvedObject.Namespace,
+		"involved_object_kind":      event.InvolvedObject.Kind,
+		"reason":                    event.Reason,
+	}).Inc()
 }
