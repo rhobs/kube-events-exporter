@@ -14,7 +14,24 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package exporter
 
-func main() {
+import (
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/rhobs/kube-events-exporter/internal/version"
+)
+
+// NewExporterVersionCollector returns a Gauge metric describing the exporter
+// version.
+func NewExporterVersionCollector() prometheus.Collector {
+	exporterVersion := prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "kube_events_exporter_version",
+		Help: "Version of the exporter.",
+		ConstLabels: map[string]string{
+			"version": version.GetVersion(),
+		},
+	})
+	exporterVersion.Set(1)
+
+	return exporterVersion
 }
