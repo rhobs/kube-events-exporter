@@ -32,7 +32,7 @@ import (
 
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog"
 )
 
@@ -50,9 +50,9 @@ func main() {
 		os.Exit(0)
 	}
 
-	kubeConfig, err := rest.InClusterConfig()
+	kubeConfig, err := clientcmd.BuildConfigFromFlags(opts.Apiserver, opts.Kubeconfig)
 	if err != nil {
-		klog.Fatalf("Could not create InCluster config: %v", err)
+		klog.Fatalf("Could not create cluster config: %v", err)
 	}
 
 	eventRegistry := prometheus.NewRegistry()
