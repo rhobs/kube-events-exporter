@@ -9,6 +9,7 @@ GOLANGCI_BIN=$(BIN_DIR)/golangci-lint
 TOOLING=$(GOLANGCI_BIN)
 
 GOMOD_DIRS=. scripts
+PKGS=$(shell go list ./... | grep -v /test/e2e)
 
 .PHONY: all
 all: lint build test
@@ -53,7 +54,7 @@ test: test-unit test-e2e
 
 .PHONY: test-unit
 test-unit:
-	@echo "FIXME: add unit tests"
+	GOOS=$(GOOS) GOARCH=$(GOARCH) go test -v -race $(PKGS)
 
 .PHONY: test-e2e
 test-e2e:
