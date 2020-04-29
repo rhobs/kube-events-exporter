@@ -54,11 +54,12 @@ test: test-unit test-e2e
 
 .PHONY: test-unit
 test-unit:
-	GOOS=$(GOOS) GOARCH=$(GOARCH) go test -v -race $(PKGS)
+	GOOS=$(GOOS) GOARCH=$(GOARCH) go test -v -race -count=1 $(PKGS)
 
 .PHONY: test-e2e
-test-e2e:
-	@echo "FIXME: add e2e tests"
+test-e2e: KUBECONFIG?=$(HOME)/.kube/config
+test-e2e: manifests/deployment.yaml
+	GOOS=$(GOOS) GOARCH=$(GOARCH) go test -v -race -count=1 ./test/e2e --kubeconfig=$(KUBECONFIG)
 
 .PHONY: clean
 clean:
