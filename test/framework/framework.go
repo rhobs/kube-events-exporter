@@ -31,6 +31,8 @@ type Framework struct {
 	DefaultTimeout time.Duration
 }
 
+type finalizerFn = func() error
+
 // NewFramework returns a new framework.
 func NewFramework(kubeconfig string) (*Framework, error) {
 	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)

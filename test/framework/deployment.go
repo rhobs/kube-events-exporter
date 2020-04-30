@@ -19,6 +19,7 @@ package framework
 import (
 	"context"
 	"io/ioutil"
+	"path/filepath"
 	"time"
 
 	"github.com/ghodss/yaml"
@@ -49,7 +50,7 @@ func (f *Framework) CreateDeployment(deployment *appsv1.Deployment, ns string) (
 
 // MakeDeployment creates a deployment object from yaml manifest.
 func MakeDeployment(manifestPath string) (*appsv1.Deployment, error) {
-	manifest, err := ioutil.ReadFile(manifestPath)
+	manifest, err := ioutil.ReadFile(filepath.Clean(manifestPath))
 	if err != nil {
 		return nil, errors.Wrapf(err, "read deployment manifest %s", manifestPath)
 	}
@@ -65,7 +66,11 @@ func MakeDeployment(manifestPath string) (*appsv1.Deployment, error) {
 
 // DeleteDeployment deletes the given deployment.
 func (f *Framework) DeleteDeployment(ns, name string) error {
-	return f.KubeClient.AppsV1().Deployments(ns).Delete(context.TODO(), name, metav1.DeleteOptions{})
+	err := f.KubeClient.AppsV1().Deployments(ns).Delete(context.TODO(), name, metav1.DeleteOptions{})
+	if err != nil {
+		return errors.Wrapf(err, "delete deployment %s", name)
+	}
+	return nil
 }
 
 // WaitUntilDeploymentReady waits until given deployment is ready.

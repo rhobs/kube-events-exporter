@@ -24,6 +24,7 @@ import (
 	"testing"
 
 	exporterFramework "github.com/rhobs/kube-events-exporter/test/framework"
+	"golang.org/x/sync/errgroup"
 )
 
 var (
@@ -49,30 +50,41 @@ func TestMain(m *testing.M) {
 		log.Fatalf("setup test framework: %v\n", err)
 	}
 
-	deployment, err := framework.CreateKubeEventsExporter("default", *exporterImage)
+	finalizers, err := framework.CreateKubeEventsExporter("default", *exporterImage)
 	if err != nil {
 		log.Fatalf("create kube-events-exporter: %v\n", err)
 	}
 
 	exitCode := m.Run()
 
-	err = framework.DeleteDeployment(deployment.Namespace, deployment.Name)
+	var eg errgroup.Group
+	for _, finalizer := range finalizers {
+		eg.Go(finalizer)
+	}
+	err = eg.Wait()
 	if err != nil {
-		log.Printf("delete kube-events-exporter: %v\n", err)
-		os.Exit(exitCode)
+		log.Printf("cleanup test environment: %v\n", err)
 	}
 
 	os.Exit(exitCode)
 }
 
 func TestKubeEventsExporterRunning(t *testing.T) {
-	_, err := http.Get("http://:8080/metrics")
+	resp, err := http.Get(exporterFramework.EventServerURL)
 	if err != nil {
-		t.Fatalf("event metrics server not running %v", err)
+		t.Fatalf("event server not running %v", err)
+	}
+	err = resp.Body.Close()
+	if err != nil {
+		t.Log(err)
 	}
 
-	_, err = http.Get("http:/:8081/metrics")
+	resp, err = http.Get(exporterFramework.ExporterServerURL)
 	if err != nil {
-		t.Fatalf("exporter metrics server not running %v", err)
+		t.Fatalf("exporter server not running %v", err)
+	}
+	err = resp.Body.Close()
+	if err != nil {
+		t.Log(err)
 	}
 }
