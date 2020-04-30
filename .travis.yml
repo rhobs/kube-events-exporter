@@ -36,7 +36,7 @@ jobs:
       name: Unit tests
       script: make test-unit
     - name: End to end tests
-      script: make test-e2e
+      script: ./scripts/travis-e2e.sh
 
     - stage: deploy
       name: Deploy image to quay.io

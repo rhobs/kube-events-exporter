@@ -9,7 +9,6 @@ BIN_DIR?=$(shell pwd)/tmp/bin
 GOLANGCI_BIN=$(BIN_DIR)/golangci-lint
 TOOLING=$(GOLANGCI_BIN)
 
-KIND_BIN?=kind
 KUBECONFIG?=$(HOME)/.kube/config
 
 GOMOD_DIRS=. scripts
@@ -53,21 +52,6 @@ container: build
 container-push: container
 	docker push $(DOCKER_REPO):$(VERSION)
 
-.PHONY: .inject-local-container
-.inject-local-container: CONTEXT=$(shell kubectl config view -o json | grep "current-context" | awk '{print $$2}')
-.inject-local-container:
-	@case "$(CONTEXT)" in \
-	minikube) \
-		eval $$(minikube -p minikube docker-env); \
-		$(MAKE) container VERSION=$(TAG);; \
-	kind-kind) \
-		$(MAKE) container VERSION=$(TAG); \
-		$(KIND_BIN) load docker-image $(DOCKER_REPO):$(TAG);; \
-	*) \
-		echo ERROR: $@: cluster context "$(CONTEXT)" not supported, use minikube or kind instead.; \
-		exit 1;; \
-	esac
-
 .PHONY: test
 test: test-unit test-e2e
 
@@ -76,13 +60,9 @@ test-unit:
 	GOOS=$(GOOS) GOARCH=$(GOARCH) go test -v -race -count=1 $(PKGS)
 
 .PHONY: test-e2e
-test-e2e: .setup-test-e2e
+test-e2e:
+	./scripts/setup-e2e.sh
 	GOOS=$(GOOS) GOARCH=$(GOARCH) go test -v -race -count=1 ./test/e2e/main_test.go --kubeconfig=$(KUBECONFIG) --exporter-image=$(DOCKER_REPO):$(TAG)
-
-.PHONY: .setup-test-e2e
-.setup-test-e2e: .inject-local-container
-	@-pkill -f "kubectl proxy"
-	@kubectl proxy &
 
 .PHONY: clean
 clean:
