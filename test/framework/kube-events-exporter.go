@@ -23,10 +23,15 @@ import (
 
 // CreateKubeEventsExporter creates kube-events-exporter deployment inside
 // of the specified namespace.
-func (f *Framework) CreateKubeEventsExporter(ns string) (*appsv1.Deployment, error) {
+func (f *Framework) CreateKubeEventsExporter(ns, exporterImage string) (*appsv1.Deployment, error) {
 	deployment, err := MakeDeployment("../../manifests/deployment.yaml")
 	if err != nil {
 		return nil, errors.Wrap(err, "make kube-events-exporter deployment")
+	}
+
+	if exporterImage != "" {
+		// Override kube-events-exporter image with the one specified.
+		deployment.Spec.Template.Spec.Containers[0].Image = exporterImage
 	}
 
 	deployment, err = f.CreateDeployment(deployment, ns)

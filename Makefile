@@ -2,11 +2,15 @@ GOARCH?=$(shell go env GOARCH)
 GOOS?=$(shell uname -s | tr A-Z a-z)
 REPO=github.com/rhobs/kube-events-exporter
 VERSION?=$(shell cat VERSION)
+TAG?=$(shell git rev-parse --short HEAD)
 DOCKER_REPO?=quay.io/dgrisonnet/kube-events-exporter
 
 BIN_DIR?=$(shell pwd)/tmp/bin
 GOLANGCI_BIN=$(BIN_DIR)/golangci-lint
 TOOLING=$(GOLANGCI_BIN)
+
+KIND_BIN?=kind
+KUBECONFIG?=$(HOME)/.kube/config
 
 GOMOD_DIRS=. scripts
 PKGS=$(shell go list ./... | grep -v /test/e2e)
@@ -57,9 +61,21 @@ test-unit:
 	GOOS=$(GOOS) GOARCH=$(GOARCH) go test -v -race -count=1 $(PKGS)
 
 .PHONY: test-e2e
-test-e2e: KUBECONFIG?=$(HOME)/.kube/config
+test-e2e: CONTEXT=$(shell kubectl config view -o json | grep "current-context" | awk '{print $$2}')
 test-e2e: manifests/deployment.yaml
-	GOOS=$(GOOS) GOARCH=$(GOARCH) go test -v -race -count=1 ./test/e2e --kubeconfig=$(KUBECONFIG)
+# Inject local image in the cluster.
+	@case "$(CONTEXT)" in \
+	minikube) \
+		eval $$(minikube -p minikube docker-env); \
+		$(MAKE) container VERSION=$(TAG);; \
+	kind-kind) \
+		$(MAKE) container VERSION=$(TAG); \
+		$(KIND_BIN) load docker-image $(DOCKER_REPO):$(TAG);; \
+	*) \
+		echo ERROR: $@: cluster context "$(CONTEXT)" not supported, use minikube or kind instead.; \
+		exit 1;; \
+	esac
+	GOOS=$(GOOS) GOARCH=$(GOARCH) go test -v -race -count=1 ./test/e2e/main_test.go --kubeconfig=$(KUBECONFIG) --exporter-image=$(DOCKER_REPO):$(TAG)
 
 .PHONY: clean
 clean:

@@ -36,6 +36,11 @@ func TestMain(m *testing.M) {
 		os.Getenv("KUBECONFIG"),
 		"Absolute path to the kubeconfig file.",
 	)
+	exporterImage := flag.String(
+		"exporter-image",
+		"",
+		"Exporter container image as specified in a deployment manifest.",
+	)
 	flag.Parse()
 
 	var err error
@@ -44,7 +49,7 @@ func TestMain(m *testing.M) {
 		log.Fatalf("setup test framework: %v\n", err)
 	}
 
-	deployment, err := framework.CreateKubeEventsExporter("default")
+	deployment, err := framework.CreateKubeEventsExporter("default", *exporterImage)
 	if err != nil {
 		log.Fatalf("create kube-events-exporter: %v\n", err)
 	}
