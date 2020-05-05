@@ -4,4 +4,4 @@ ADD kube-events-exporter /
 
 ENTRYPOINT ["/kube-events-exporter"]
 
-EXPOSE 8080
+EXPOSE 8080 8081

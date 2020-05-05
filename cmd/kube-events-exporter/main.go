@@ -67,7 +67,9 @@ func main() {
 	}
 
 	// Serve metrics about the exporter.
-	go klog.Fatal(http.Serve(exporterListener, exporterMux))
+	go func() {
+		klog.Fatal(http.Serve(exporterListener, exporterMux))
+	}()
 
 	// Serve metrics about Kubernetes Events.
 	klog.Fatal(http.Serve(eventsListener, eventsMux))
