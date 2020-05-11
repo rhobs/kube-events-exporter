@@ -23,6 +23,7 @@ import (
 	"os"
 	"strconv"
 
+	"github.com/oklog/run"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rhobs/kube-events-exporter/internal/collector"
 	"github.com/rhobs/kube-events-exporter/internal/exporter"
@@ -76,22 +77,27 @@ func main() {
 	exporterMux := http.NewServeMux()
 	exporterhttp.RegisterExporterMuxHandlers(exporterMux, exporterRegistry)
 
-	eventListenAddr := net.JoinHostPort(opts.Host, strconv.Itoa(opts.Port))
-	eventListener, err := net.Listen("tcp", eventListenAddr)
-	if err != nil {
-		klog.Fatalf("failed to start listening on: %v: %v", eventListenAddr, err)
-	}
-	exporterListenAddr := net.JoinHostPort(opts.ExporterHost, strconv.Itoa(opts.ExporterPort))
-	exporterListener, err := net.Listen("tcp", exporterListenAddr)
-	if err != nil {
-		klog.Fatalf("failed to start listening on: %v: %v", exporterListenAddr, err)
-	}
+	var rg run.Group
+	rg.Add(listenAndServe(exporterMux, opts.ExporterHost, opts.ExporterPort))
+	rg.Add(listenAndServe(eventMux, opts.Host, opts.Port))
+	klog.Fatalf("metrics servers terminated: %v", rg.Run())
+}
 
-	// Serve metrics about the exporter.
-	go func() {
-		klog.Fatal(http.Serve(exporterListener, exporterMux))
-	}()
-
-	// Serve metrics about Kubernetes Events.
-	klog.Fatal(http.Serve(eventListener, eventMux))
+func listenAndServe(mux *http.ServeMux, host string, port int) (func() error, func(error)) {
+	var listener net.Listener
+	serve := func() error {
+		addr := net.JoinHostPort(host, strconv.Itoa(port))
+		listener, err := net.Listen("tcp", addr)
+		if err != nil {
+			return err
+		}
+		return http.Serve(listener, mux)
+	}
+	cleanup := func(error) {
+		err := listener.Close()
+		if err != nil {
+			klog.Errorf("failed to close listener: %v", err)
+		}
+	}
+	return serve, cleanup
 }
