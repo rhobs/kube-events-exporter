@@ -27,7 +27,7 @@ vendor:
 	done
 
 .PHONY: lint
-lint: check-license lint-go
+lint: check-license shellcheck lint-go
 
 .PHONY: check-license
 check-license:
@@ -36,6 +36,10 @@ check-license:
 .PHONY: lint-go
 lint-go: $(GOLANGCI_BIN)
 	$(GOLANGCI_BIN) run -v
+
+.PHONY: shellcheck
+shellcheck:
+	docker run -v "$(PWD):/mnt" koalaman/shellcheck:stable $(shell find . -type f -name "*.sh" -not -path "*vendor*")
 
 .PHONY: build
 build: kube-events-exporter
