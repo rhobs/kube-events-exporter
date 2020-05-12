@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/prometheus/common/expfmt"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 )
@@ -29,12 +30,14 @@ import (
 type Framework struct {
 	KubeClient     kubernetes.Interface
 	DefaultTimeout time.Duration
+	Exporter       *KubeEventsExporter
+	MetricsParser  expfmt.TextParser
 }
 
 type finalizerFn = func() error
 
 // NewFramework returns a new framework.
-func NewFramework(kubeconfig string) (*Framework, error) {
+func NewFramework(kubeconfig, exporterImage string) (*Framework, error) {
 	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
 	if err != nil {
 		return nil, errors.Wrapf(err, "build config from flags")
@@ -46,7 +49,14 @@ func NewFramework(kubeconfig string) (*Framework, error) {
 	}
 
 	framework := &Framework{
-		KubeClient: kubeClient,
+		KubeClient:     kubeClient,
+		DefaultTimeout: 2 * time.Second,
+		MetricsParser:  expfmt.TextParser{},
+	}
+
+	framework.Exporter, err = framework.CreateKubeEventsExporter("default", exporterImage)
+	if err != nil {
+		return nil, errors.Wrapf(err, "create kube-events-exporter")
 	}
 
 	return framework, nil

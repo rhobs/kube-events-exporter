@@ -45,20 +45,15 @@ func TestMain(m *testing.M) {
 	flag.Parse()
 
 	var err error
-	framework, err = exporterFramework.NewFramework(*kubeconfig)
+	framework, err = exporterFramework.NewFramework(*kubeconfig, *exporterImage)
 	if err != nil {
 		log.Fatalf("setup test framework: %v\n", err)
-	}
-
-	finalizers, err := framework.CreateKubeEventsExporter("default", *exporterImage)
-	if err != nil {
-		log.Fatalf("create kube-events-exporter: %v\n", err)
 	}
 
 	exitCode := m.Run()
 
 	var eg errgroup.Group
-	for _, finalizer := range finalizers {
+	for _, finalizer := range framework.Exporter.Finalizers {
 		eg.Go(finalizer)
 	}
 	err = eg.Wait()
@@ -70,7 +65,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestKubeEventsExporterRunning(t *testing.T) {
-	resp, err := http.Get(exporterFramework.EventServerURL)
+	resp, err := http.Get(framework.Exporter.EventServerURL)
 	if err != nil {
 		t.Fatalf("event server not running %v", err)
 	}
@@ -79,7 +74,7 @@ func TestKubeEventsExporterRunning(t *testing.T) {
 		t.Log(err)
 	}
 
-	resp, err = http.Get(exporterFramework.ExporterServerURL)
+	resp, err = http.Get(framework.Exporter.ExporterServerURL)
 	if err != nil {
 		t.Fatalf("exporter server not running %v", err)
 	}
