@@ -18,7 +18,9 @@ package collector
 
 import (
 	"github.com/prometheus/client_golang/prometheus"
+
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/tools/cache"
 )
@@ -59,13 +61,22 @@ func (collector *EventCollector) WithInformerFactory(factory informers.SharedInf
 
 // Run starts updating EventCollector metrics.
 func (collector *EventCollector) Run(stopCh <-chan struct{}) {
+	startRunning := metav1.Now()
 	eventsTotalInformer := collector.informerFactory.Core().V1().Events().Informer()
 	eventsTotalInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			collector.increaseEventsTotal(obj.(*v1.Event))
+			ev := obj.(*v1.Event)
+			// Count only Events created after the exporter starts running.
+			if startRunning.Before(&ev.CreationTimestamp) {
+				collector.increaseEventsTotal(ev)
+			}
 		},
-		UpdateFunc: func(obj, _ interface{}) {
-			collector.increaseEventsTotal(obj.(*v1.Event))
+		UpdateFunc: func(_, obj interface{}) {
+			ev := obj.(*v1.Event)
+			// Count only Events updated after the exporter starts running.
+			if startRunning.Before(&ev.CreationTimestamp) {
+				collector.increaseEventsTotal(ev)
+			}
 		},
 	})
 	go collector.informerFactory.Start(stopCh)
