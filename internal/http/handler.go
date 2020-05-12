@@ -25,6 +25,7 @@ import (
 
 const (
 	metricsPath = "/metrics"
+	healthzPath = "/healthz"
 )
 
 // RegisterExporterMuxHandlers registers the handlers needed to serve the
@@ -42,6 +43,11 @@ func RegisterEventsMuxHandlers(mux *http.ServeMux, eventsRegistry *prometheus.Re
 		promhttp.HandlerFor(eventsRegistry, promhttp.HandlerOpts{}),
 	)
 	mux.Handle(metricsPath, metricsHandler)
+
+	// Add healthzPath handler.
+	mux.HandleFunc(healthzPath, func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
 }
 
 // InstrumentMetricHandler is a middleware that wraps the provided http.Handler
