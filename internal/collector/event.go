@@ -71,11 +71,15 @@ func (collector *EventCollector) Run(stopCh <-chan struct{}) {
 				collector.increaseEventsTotal(ev)
 			}
 		},
-		UpdateFunc: func(_, obj interface{}) {
-			ev := obj.(*v1.Event)
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			oldEv := oldObj.(*v1.Event)
+			newEv := newObj.(*v1.Event)
 			// Count only Events updated after the exporter starts running.
-			if startRunning.Before(&ev.CreationTimestamp) {
-				collector.increaseEventsTotal(ev)
+			if startRunning.Before(&newEv.CreationTimestamp) {
+				// Update counter only if the Event count has been updated.
+				if isNewEvent(oldEv, newEv) {
+					collector.increaseEventsTotal(newEv)
+				}
 			}
 		},
 	})
@@ -89,4 +93,16 @@ func (collector *EventCollector) increaseEventsTotal(event *v1.Event) {
 		"involved_object_kind":      event.InvolvedObject.Kind,
 		"reason":                    event.Reason,
 	}).Inc()
+}
+
+func isNewEvent(oldEv, newEv *v1.Event) bool {
+	if oldEv.Count == newEv.Count-1 {
+		return true
+	}
+
+	if oldEv.Series != nil && newEv.Series != nil {
+		return oldEv.Series.Count == newEv.Series.Count-1
+	}
+
+	return false
 }
