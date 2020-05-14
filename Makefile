@@ -7,7 +7,9 @@ DOCKER_REPO?=quay.io/dgrisonnet/kube-events-exporter
 
 BIN_DIR?=$(shell pwd)/tmp/bin
 GOLANGCI_BIN=$(BIN_DIR)/golangci-lint
-TOOLING=$(GOLANGCI_BIN)
+GOJSONTOYAML_BIN=$(BIN_DIR)/gojsontoyaml
+JSONNET_BIN=$(BIN_DIR)/jsonnet
+TOOLING=$(GOLANGCI_BIN) $(GOJSONTOYAML_BIN) $(JSONNET_BIN)
 
 KUBECONFIG?=$(HOME)/.kube/config
 
@@ -15,7 +17,7 @@ GOMOD_DIRS=. scripts
 PKGS=$(shell go list ./... | grep -v /test/e2e)
 
 .PHONY: all
-all: lint build test
+all: generate lint build test
 
 .PHONY: vendor
 vendor:
@@ -25,6 +27,13 @@ vendor:
 		go mod vendor; \
 		go mod verify; \
 	done
+
+.PHONY: generate
+generate: manifests
+
+.PHONY: manifests
+manifests: $(GOJSONTOYAML_BIN) $(JSONNET_BIN)
+	./scripts/generate/generate-manifests.sh
 
 .PHONY: lint
 lint: check-license shellcheck lint-go

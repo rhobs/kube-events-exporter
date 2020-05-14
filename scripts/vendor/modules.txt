@@ -4,12 +4,17 @@ github.com/BurntSushi/toml
 github.com/OpenPeeDeeP/depguard
 # github.com/bombsimon/wsl/v2 v2.0.0
 github.com/bombsimon/wsl/v2
+# github.com/brancz/gojsontoyaml v0.0.0-20191212081931-bf2969bbd742
+## explicit
+github.com/brancz/gojsontoyaml
 # github.com/davecgh/go-spew v1.1.1
 github.com/davecgh/go-spew/spew
 # github.com/fatih/color v1.7.0
 github.com/fatih/color
 # github.com/fsnotify/fsnotify v1.4.7
 github.com/fsnotify/fsnotify
+# github.com/ghodss/yaml v1.0.0
+github.com/ghodss/yaml
 # github.com/go-critic/go-critic v0.4.1
 github.com/go-critic/go-critic/checkers
 github.com/go-critic/go-critic/checkers/internal/lintutil
@@ -105,6 +110,15 @@ github.com/golangci/prealloc
 github.com/golangci/revgrep
 # github.com/golangci/unconvert v0.0.0-20180507085042-28b1c447d1f4
 github.com/golangci/unconvert
+# github.com/google/go-jsonnet v0.15.0
+## explicit
+github.com/google/go-jsonnet
+github.com/google/go-jsonnet/ast
+github.com/google/go-jsonnet/astgen
+github.com/google/go-jsonnet/cmd/jsonnet
+github.com/google/go-jsonnet/internal/errors
+github.com/google/go-jsonnet/internal/parser
+github.com/google/go-jsonnet/internal/program
 # github.com/gostaticanalysis/analysisutil v0.0.0-20190318220348-4088753ea4d3
 github.com/gostaticanalysis/analysisutil
 # github.com/hashicorp/hcl v1.0.0
