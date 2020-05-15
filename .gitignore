@@ -17,3 +17,7 @@ tmp/
 kube-events-exporter
 !cmd/kube-events-exporter
 !jsonnet/kube-events-exporter
+
+# Jsonnet vendors
+jsonnet/kube-events-exporter/vendor/
+scripts/generate/vendor/
