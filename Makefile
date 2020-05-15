@@ -9,30 +9,45 @@ BIN_DIR?=$(shell pwd)/tmp/bin
 GOLANGCI_BIN=$(BIN_DIR)/golangci-lint
 GOJSONTOYAML_BIN=$(BIN_DIR)/gojsontoyaml
 JSONNET_BIN=$(BIN_DIR)/jsonnet
-TOOLING=$(GOLANGCI_BIN) $(GOJSONTOYAML_BIN) $(JSONNET_BIN)
+JB_BIN=$(BIN_DIR)/jb
+TOOLING=$(GOLANGCI_BIN) $(GOJSONTOYAML_BIN) $(JSONNET_BIN) $(JB_BIN)
 
 KUBECONFIG?=$(HOME)/.kube/config
 
-GOMOD_DIRS=. scripts
+GO_VENDORS=. scripts
+JSONNET_VENDORS=jsonnet/kube-events-exporter scripts/generate
 PKGS=$(shell go list ./... | grep -v /test/e2e)
 
 .PHONY: all
 all: generate lint build test
 
 .PHONY: vendor
-vendor:
-	@for dir in $(GOMOD_DIRS); do \
+vendor: vendor-go
+
+.PHONY: vendor-go
+vendor-go:
+	@for dir in $(GO_VENDORS); do \
 		cd $$dir; \
 		go mod tidy; \
 		go mod vendor; \
 		go mod verify; \
+		cd -; \
+	done
+
+.PHONY: vendor-jsonnet
+vendor-jsonnet: $(JB_BIN)
+	@for dir in $(JSONNET_VENDORS); do \
+		cd $$dir; \
+		rm -rf vendor; \
+		$(JB_BIN) install; \
+		cd -; \
 	done
 
 .PHONY: generate
 generate: manifests
 
 .PHONY: manifests
-manifests: $(GOJSONTOYAML_BIN) $(JSONNET_BIN)
+manifests: vendor-jsonnet $(GOJSONTOYAML_BIN) $(JSONNET_BIN)
 	./scripts/generate/generate-manifests.sh
 
 .PHONY: lint
@@ -86,4 +101,4 @@ $(BIN_DIR):
 
 $(TOOLING): $(BIN_DIR)
 	@echo Installing tools from scripts/tools.go
-	@cd scripts && cat tools.go | grep _ | awk -F'"' '{print $$2}' | xargs -tI % go build -o $(BIN_DIR) %
+	@cd scripts && cat tools.go | grep _ | awk -F'"' '{print $$2}' | xargs -tI % go build -mod=mod -o $(BIN_DIR) %

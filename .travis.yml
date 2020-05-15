@@ -13,6 +13,7 @@ branches:
 
 stages:
   - vendor
+  - generate
   - lint
   - build
   - test
@@ -23,6 +24,10 @@ jobs:
     - stage: vendor
       name: Vendor
       script: make vendor && git diff --exit-code
+
+    - stage: generate
+      name: Generate
+      script: make generate && git diff --exit-code
 
     - stage: lint
       name: Lint
