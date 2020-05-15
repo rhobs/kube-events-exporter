@@ -2,7 +2,7 @@ local lib = (import 'kube-events-exporter/kube-events-exporter.libsonnet') + {
   config+:: {
     namespace:: 'default',
     version:: '0.0.0',
-    image:: 'quay.io/repository/dgrisonnet/kube-events-exporter:latest'
+    image:: 'quay.io/dgrisonnet/kube-events-exporter:latest'
   },
 };
 

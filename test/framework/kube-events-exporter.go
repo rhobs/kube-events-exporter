@@ -74,7 +74,7 @@ func (f *Framework) CreateKubeEventsExporter(ns, exporterImage string) ([]finali
 	EventServerURL = fmt.Sprintf("http://localhost:8001/api/v1/namespaces/%s/services/kube-events-exporter:event/proxy/", ns)
 	ExporterServerURL = fmt.Sprintf("http://localhost:8001/api/v1/namespaces/%s/services/kube-events-exporter:exporter/proxy/", ns)
 
-	deployment, err := MakeDeployment("../../manifests/deployment.yaml")
+	deployment, err := MakeDeployment("../../manifests/kube-events-exporter-deployment.yaml")
 	if err != nil {
 		return nil, errors.Wrap(err, "make kube-events-exporter deployment")
 	}
@@ -83,6 +83,9 @@ func (f *Framework) CreateKubeEventsExporter(ns, exporterImage string) ([]finali
 		// Override kube-events-exporter image with the one specified.
 		deployment.Spec.Template.Spec.Containers[0].Image = exporterImage
 	}
+
+	// TODO: create rbac configuration
+	deployment.Spec.Template.Spec.ServiceAccountName = ""
 
 	deployment, err = f.CreateDeployment(deployment, ns)
 	if err != nil {

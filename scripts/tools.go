@@ -21,5 +21,7 @@ limitations under the License.
 package tools
 
 import (
+	_ "github.com/brancz/gojsontoyaml"
 	_ "github.com/golangci/golangci-lint/cmd/golangci-lint"
+	_ "github.com/google/go-jsonnet/cmd/jsonnet"
 )
