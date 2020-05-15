@@ -16,3 +16,4 @@ tmp/
 # Project binary
 kube-events-exporter
 !cmd/kube-events-exporter
+!jsonnet/kube-events-exporter
