@@ -67,42 +67,41 @@ func (collector *EventCollector) Run(stopCh <-chan struct{}) {
 		AddFunc: func(obj interface{}) {
 			ev := obj.(*v1.Event)
 			// Count only Events created after the exporter starts running.
-			if startRunning.Before(&ev.CreationTimestamp) {
-				collector.increaseEventsTotal(ev)
+			if startRunning.Before(&ev.LastTimestamp) {
+				// FIXME: take into account the event count.
+				collector.increaseEventsTotal(ev, 1)
 			}
 		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
 			oldEv := oldObj.(*v1.Event)
 			newEv := newObj.(*v1.Event)
 			// Count only Events updated after the exporter starts running.
-			if startRunning.Before(&newEv.CreationTimestamp) {
-				// Update counter only if the Event count has been updated.
-				if isNewEvent(oldEv, newEv) {
-					collector.increaseEventsTotal(newEv)
-				}
+			if startRunning.Before(&newEv.LastTimestamp) {
+				nbNew := updatedEventNb(oldEv, newEv)
+				collector.increaseEventsTotal(newEv, float64(nbNew))
 			}
 		},
 	})
 	go collector.informerFactory.Start(stopCh)
 }
 
-func (collector *EventCollector) increaseEventsTotal(event *v1.Event) {
+func (collector *EventCollector) increaseEventsTotal(event *v1.Event, nbNew float64) {
 	collector.eventsTotal.With(prometheus.Labels{
 		"type":                      event.Type,
 		"involved_object_namespace": event.InvolvedObject.Namespace,
 		"involved_object_kind":      event.InvolvedObject.Kind,
 		"reason":                    event.Reason,
-	}).Inc()
+	}).Add(nbNew)
 }
 
-func isNewEvent(oldEv, newEv *v1.Event) bool {
-	if oldEv.Count == newEv.Count-1 {
-		return true
+func updatedEventNb(oldEv, newEv *v1.Event) int32 {
+	if oldEv.Count != 0 {
+		return newEv.Count - oldEv.Count
 	}
 
 	if oldEv.Series != nil && newEv.Series != nil {
-		return oldEv.Series.Count == newEv.Series.Count-1
+		return newEv.Series.Count - oldEv.Series.Count
 	}
 
-	return false
+	return 0
 }
