@@ -218,11 +218,17 @@ func (f Fixer) writeFixedFile(origFileLines [][]byte, issues []result.Issue, tmp
 		}
 
 		origFileLineNumber := i + 1
-		if nextIssue == nil || origFileLineNumber != nextIssue.Line() {
+		if nextIssue == nil || origFileLineNumber != nextIssue.GetLineRange().From {
 			outLine = string(origFileLines[i])
 		} else {
 			nextIssueIndex++
 			rng := nextIssue.GetLineRange()
+			if rng.From > rng.To {
+				// Maybe better decision is to skip such issues, re-evaluate if regressed.
+				f.log.Warnf("[fixer]: issue line range is probably invalid, fix can be incorrect (from=%d, to=%d, linter=%s)",
+					rng.From, rng.To, nextIssue.FromLinter,
+				)
+			}
 			i += rng.To - rng.From
 			if nextIssue.Replacement.NeedOnlyDelete {
 				continue
