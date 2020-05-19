@@ -17,10 +17,11 @@ limitations under the License.
 package collector
 
 import (
+	"time"
+
 	"github.com/prometheus/client_golang/prometheus"
 
 	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/tools/cache"
 )
@@ -61,13 +62,13 @@ func (collector *EventCollector) WithInformerFactory(factory informers.SharedInf
 
 // Run starts updating EventCollector metrics.
 func (collector *EventCollector) Run(stopCh <-chan struct{}) {
-	startRunning := metav1.Now()
+	startRunning := time.Now()
 	eventsTotalInformer := collector.informerFactory.Core().V1().Events().Informer()
 	eventsTotalInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			ev := obj.(*v1.Event)
 			// Count only Events created after the exporter starts running.
-			if startRunning.Before(&ev.LastTimestamp) {
+			if beforeLastEvent(startRunning, ev) {
 				// FIXME: take into account the event count.
 				collector.increaseEventsTotal(ev, 1)
 			}
@@ -76,7 +77,7 @@ func (collector *EventCollector) Run(stopCh <-chan struct{}) {
 			oldEv := oldObj.(*v1.Event)
 			newEv := newObj.(*v1.Event)
 			// Count only Events updated after the exporter starts running.
-			if startRunning.Before(&newEv.LastTimestamp) {
+			if beforeLastEvent(startRunning, newEv) {
 				nbNew := updatedEventNb(oldEv, newEv)
 				collector.increaseEventsTotal(newEv, float64(nbNew))
 			}
@@ -94,14 +95,23 @@ func (collector *EventCollector) increaseEventsTotal(event *v1.Event, nbNew floa
 	}).Add(nbNew)
 }
 
+func beforeLastEvent(t time.Time, ev *v1.Event) bool {
+	if ev.Series != nil && !ev.Series.LastObservedTime.IsZero() {
+		return t.Before(ev.Series.LastObservedTime.Time)
+	}
+
+	return t.Before(ev.LastTimestamp.Time)
+}
+
 func updatedEventNb(oldEv, newEv *v1.Event) int32 {
-	if oldEv.Count != 0 {
-		return newEv.Count - oldEv.Count
+	if newEv.Series != nil {
+		if oldEv.Series != nil {
+			return newEv.Series.Count - oldEv.Series.Count
+		}
+		// When event is emitted for the first time it's written to the API
+		// server without series field set.
+		return newEv.Series.Count
 	}
 
-	if oldEv.Series != nil && newEv.Series != nil {
-		return newEv.Series.Count - oldEv.Series.Count
-	}
-
-	return 0
+	return newEv.Count - oldEv.Count
 }
