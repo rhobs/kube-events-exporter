@@ -41,7 +41,7 @@ local k = import 'ksonnet/ksonnet.beta.4/k.libsonnet';
       clusterRoleBinding.withSubjects([{
         kind: 'ServiceAccount',
         name: kee.serviceAccount.metadata.name,
-        namespace: kee.namespace
+        namespace: kee.namespace,
       }]),
 
     clusterRole:
@@ -67,7 +67,7 @@ local k = import 'ksonnet/ksonnet.beta.4/k.libsonnet';
         container.new('kube-events-exporter', kee.image) +
         container.withPorts([
           containerPort.newNamed(8080, 'event'),
-          containerPort.newNamed(8081, 'exporter')
+          containerPort.newNamed(8081, 'exporter'),
         ]);
 
       deployment.new('kube-events-exporter', 1, exporterContainer, kee.commonLabels) +
@@ -89,10 +89,10 @@ local k = import 'ksonnet/ksonnet.beta.4/k.libsonnet';
       spec: {
         podMetricsEndpoints: [
           {
-            port: 'event'
+            port: 'event',
           },
           {
-            port: 'exporter'
+            port: 'exporter',
           },
         ],
         selector: {

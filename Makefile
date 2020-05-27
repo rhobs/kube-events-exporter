@@ -9,8 +9,9 @@ BIN_DIR?=$(shell pwd)/tmp/bin
 GOLANGCI_BIN=$(BIN_DIR)/golangci-lint
 GOJSONTOYAML_BIN=$(BIN_DIR)/gojsontoyaml
 JSONNET_BIN=$(BIN_DIR)/jsonnet
+JSONNETFMT_BIN=$(BIN_DIR)/jsonnetfmt
 JB_BIN=$(BIN_DIR)/jb
-TOOLING=$(GOLANGCI_BIN) $(GOJSONTOYAML_BIN) $(JSONNET_BIN) $(JB_BIN)
+TOOLING=$(GOLANGCI_BIN) $(GOJSONTOYAML_BIN) $(JSONNET_BIN) $(JSONNETFMT_BIN) $(JB_BIN)
 
 KUBECONFIG?=$(HOME)/.kube/config
 
@@ -51,7 +52,7 @@ manifests: vendor-jsonnet $(GOJSONTOYAML_BIN) $(JSONNET_BIN)
 	./scripts/generate/generate-manifests.sh
 
 .PHONY: lint
-lint: check-license shellcheck lint-go
+lint: check-license shellcheck lint-go lint-jsonnet
 
 .PHONY: check-license
 check-license:
@@ -61,9 +62,16 @@ check-license:
 lint-go: $(GOLANGCI_BIN)
 	$(GOLANGCI_BIN) run -v
 
+
+.PHONY: lint-jsonnet
+lint-jsonnet: JSONNET_FILES:=$(shell find . -type f \( -name "*.libsonnet" -o -name "*.jsonnet" \) -not -path "*/vendor/*")
+lint-jsonnet: $(JSONNETFMT_BIN)
+	$(JSONNETFMT_BIN) -i $(JSONNET_FILES)
+
 .PHONY: shellcheck
+shellcheck: SHELL_FILES:=$(shell find . -type f -name "*.sh" -not -path "*/vendor/*")
 shellcheck:
-	docker run -v "$(PWD):/mnt" koalaman/shellcheck:stable $(shell find . -type f -name "*.sh" -not -path "*vendor*")
+	docker run -v "$(PWD):/mnt" koalaman/shellcheck:stable $(SHELL_FILES)
 
 .PHONY: build
 build: kube-events-exporter
@@ -101,4 +109,4 @@ $(BIN_DIR):
 
 $(TOOLING): $(BIN_DIR)
 	@echo Installing tools from scripts/tools.go
-	@cd scripts && cat tools.go | grep _ | awk -F'"' '{print $$2}' | xargs -tI % go build -mod=mod -o $(BIN_DIR) %
+	@cd scripts && cat tools.go | grep _ | awk -F'"' '{print $$2}' | xargs -tI % go build -o $(BIN_DIR) %
