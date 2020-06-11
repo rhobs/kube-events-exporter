@@ -69,7 +69,6 @@ func (collector *EventCollector) Run(stopCh <-chan struct{}) {
 			ev := obj.(*v1.Event)
 			// Count only Events created after the exporter starts running.
 			if beforeLatestEvent(startRunning, ev) {
-				// FIXME: take into account the event count.
 				collector.increaseEventsTotal(ev, 1)
 			}
 		},
