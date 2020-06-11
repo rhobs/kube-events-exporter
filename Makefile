@@ -1,4 +1,9 @@
 GOARCH?=$(shell go env GOARCH)
+ifeq ($(GOARCH),arm)
+	ARCH=armv7
+else
+	ARCH=$(GOARCH)
+endif
 GOOS?=$(shell uname -s | tr A-Z a-z)
 REPO=github.com/rhobs/kube-events-exporter
 VERSION?=$(shell cat VERSION)
@@ -74,11 +79,11 @@ kube-events-exporter:
 
 .PHONY: container
 container: build
-	docker build -t $(DOCKER_REPO):$(VERSION) .
+	docker build --build-arg ARCH=$(ARCH) --build-arg OS=$(GOOS) -t $(DOCKER_REPO):$(TAG) .
 
 .PHONY: container-push
 container-push: container
-	docker push $(DOCKER_REPO):$(VERSION)
+	docker push $(DOCKER_REPO):$(TAG)
 
 .PHONY: test
 test: test-unit test-e2e

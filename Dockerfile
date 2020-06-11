@@ -1,4 +1,7 @@
-FROM busybox
+ARG ARCH="amd64"
+ARG OS="linux"
+
+FROM quay.io/prometheus/busybox-${OS}-${ARCH}:latest
 
 ADD kube-events-exporter /
 

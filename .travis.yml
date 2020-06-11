@@ -50,11 +50,11 @@ jobs:
         - docker login -u "$QUAY_USERNAME" --password-stdin quay.io <<< "$QUAY_PASSWORD"
       deploy:
         - provider: script
-          script: VERSION=latest make container-push
+          script: TAG=latest ./scripts/push-docker-images.sh
           on:
             branch: master
         - provider: script
-          script: VERSION=$TRAVIS_TAG make container-push
+          script: TAG=$TRAVIS_TAG ./scripts/push-docker-images.sh
           on:
             tags: true
             all_branches: true
