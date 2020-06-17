@@ -22,6 +22,7 @@ import (
 	"os"
 
 	"github.com/spf13/pflag"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog"
 )
 
@@ -34,6 +35,8 @@ type Options struct {
 	ExporterHost string
 	ExporterPort int
 	Version      bool
+
+	InvolvedObjectNamespaces []string
 
 	flags *pflag.FlagSet
 }
@@ -64,6 +67,7 @@ func (o *Options) AddFlags() {
 	o.flags.StringVar(&o.ExporterHost, "exporter-host", "0.0.0.0", "Host to expose kube-events-exporter own metrics on.")
 	o.flags.IntVar(&o.ExporterPort, "exporter-port", 8081, "Port to expose kube-events-exporter own metrics on.")
 	o.flags.BoolVar(&o.Version, "version", false, "kube-events-exporter version information")
+	o.flags.StringArrayVar(&o.InvolvedObjectNamespaces, "involved_object_namespaces", []string{metav1.NamespaceAll}, "Events involved object namespace filter. Defaults to all namespaces.")
 }
 
 // Parse parses the flag definitions from the argument list.
