@@ -103,7 +103,7 @@ test-unit:
 .PHONY: test-e2e
 test-e2e:
 	./scripts/setup-e2e.sh
-	GOOS=$(GOOS) GOARCH=$(GOARCH) go test -v -race -count=1 ./test/e2e/main_test.go --kubeconfig=$(KUBECONFIG) --exporter-image=$(DOCKER_REPO):$(TAG)
+	GOOS=$(GOOS) GOARCH=$(GOARCH) go test -v -race -count=1 ./test/e2e/ --kubeconfig=$(KUBECONFIG) --exporter-image=$(DOCKER_REPO):$(TAG)
 
 .PHONY: clean
 clean:

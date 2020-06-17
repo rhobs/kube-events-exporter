@@ -39,13 +39,12 @@ func (f *Framework) GetDeployment(ns, name string) (*appsv1.Deployment, error) {
 }
 
 // CreateDeployment creates the given deployment.
-func (f *Framework) CreateDeployment(deployment *appsv1.Deployment, ns string) (*appsv1.Deployment, error) {
-	deployment.Namespace = ns
-	deployment, err := f.KubeClient.AppsV1().Deployments(ns).Create(context.TODO(), deployment, metav1.CreateOptions{})
+func (f *Framework) CreateDeployment(deployment *appsv1.Deployment) error {
+	_, err := f.KubeClient.AppsV1().Deployments(deployment.Namespace).Create(context.TODO(), deployment, metav1.CreateOptions{})
 	if err != nil {
-		return nil, errors.Wrapf(err, "create deployment %s", deployment.Name)
+		return errors.Wrapf(err, "create deployment %s", deployment.Name)
 	}
-	return deployment, nil
+	return nil
 }
 
 // MakeDeployment creates a deployment object from yaml manifest.
@@ -64,6 +63,15 @@ func MakeDeployment(manifestPath string) (*appsv1.Deployment, error) {
 	return &deployment, nil
 }
 
+// UpdateDeployment updates the given deployment.
+func (f *Framework) UpdateDeployment(deployment *appsv1.Deployment) error {
+	_, err := f.KubeClient.AppsV1().Deployments(deployment.Namespace).Update(context.TODO(), deployment, metav1.UpdateOptions{})
+	if err != nil {
+		return errors.Wrapf(err, "update deployment %s", deployment.Name)
+	}
+	return nil
+}
+
 // DeleteDeployment deletes the given deployment.
 func (f *Framework) DeleteDeployment(ns, name string) error {
 	err := f.KubeClient.AppsV1().Deployments(ns).Delete(context.TODO(), name, metav1.DeleteOptions{})
@@ -75,15 +83,32 @@ func (f *Framework) DeleteDeployment(ns, name string) error {
 
 // WaitUntilDeploymentReady waits until given deployment is ready.
 func (f *Framework) WaitUntilDeploymentReady(ns, name string) error {
-	err := wait.Poll(5*time.Second, 2*time.Minute, func() (bool, error) {
+	err := wait.Poll(5*time.Second, f.DefaultTimeout, func() (bool, error) {
 		deployment, err := f.GetDeployment(ns, name)
 		if err != nil {
 			return false, nil
 		}
-		return deployment.Status.ReadyReplicas == deployment.Status.Replicas, nil
+		return deployment.Status.ReadyReplicas == *deployment.Spec.Replicas, nil
 	})
 	if err != nil {
 		return errors.Wrapf(err, "deployment %s pods are not ready", name)
+	}
+
+	return nil
+}
+
+// UpdateDeploymentReplicas updates the number of replicas of the given
+// deployment.
+func (f *Framework) UpdateDeploymentReplicas(deployment *appsv1.Deployment, replicas int32) error {
+	deployment.Spec.Replicas = &replicas
+	err := f.UpdateDeployment(deployment)
+	if err != nil {
+		return errors.Wrapf(err, "update deployment %s replicas", deployment.Name)
+	}
+
+	err = f.WaitUntilDeploymentReady(deployment.Namespace, deployment.Name)
+	if err != nil {
+		return errors.Wrapf(err, "deployment %s not ready after replicas update.", deployment.Name)
 	}
 
 	return nil
