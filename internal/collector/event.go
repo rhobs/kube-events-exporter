@@ -44,14 +44,7 @@ type EventCollector struct {
 func NewEventCollector(kubeClient kubernetes.Interface, opts *options.Options) *EventCollector {
 	var factories []informers.SharedInformerFactory
 	for _, ns := range opts.InvolvedObjectNamespaces {
-		factories = append(factories, informers.NewFilteredSharedInformerFactory(
-			kubeClient,
-			0,
-			metav1.NamespaceAll,
-			func(list *metav1.ListOptions) {
-				filterInvolvedObjectNs(list, ns)
-			},
-		))
+		factories = append(factories, newFilteredInformerFactory(kubeClient, ns))
 	}
 
 	collector := &EventCollector{
@@ -67,6 +60,17 @@ func NewEventCollector(kubeClient kubernetes.Interface, opts *options.Options) *
 	collector.initInformers()
 
 	return collector
+}
+
+func newFilteredInformerFactory(kubeClient kubernetes.Interface, ns string) informers.SharedInformerFactory {
+	return informers.NewFilteredSharedInformerFactory(
+		kubeClient,
+		0,
+		metav1.NamespaceAll,
+		func(list *metav1.ListOptions) {
+			filterInvolvedObjectNs(list, ns)
+		},
+	)
 }
 
 // Describe implements the prometheus.Collector interface.
