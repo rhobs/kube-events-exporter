@@ -21,9 +21,11 @@ import (
 	"net/http"
 	"net/url"
 	"path"
+	"testing"
 
 	"github.com/pkg/errors"
 	dto "github.com/prometheus/client_model/go"
+	"github.com/prometheus/common/expfmt"
 
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
@@ -31,13 +33,15 @@ import (
 )
 
 var (
-	kubeEventsExporterService = &v1.Service{
+	exporterNamespace = "default"
+	exporterService   = &v1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
 				"app.kubernetes.io/component": "events-exporter",
 				"app.kubernetes.io/name":      "kube-events-exporter",
 			},
-			Name: "kube-events-exporter",
+			Name:      "kube-events-exporter",
+			Namespace: exporterNamespace,
 		},
 		Spec: v1.ServiceSpec{
 			Selector: map[string]string{
@@ -64,78 +68,58 @@ type KubeEventsExporter struct {
 	Deployment        *appsv1.Deployment
 	EventServerURL    string
 	ExporterServerURL string
-	Finalizers        []finalizerFn
 }
 
 // CreateKubeEventsExporter creates kube-events-exporter deployment inside
 // of the specified namespace.
-func (f *Framework) CreateKubeEventsExporter(ns, exporterImage string) (*KubeEventsExporter, error) {
-	var finalizers []finalizerFn
+func (f *Framework) CreateKubeEventsExporter(t *testing.T) *KubeEventsExporter {
+	f.CreateService(t, exporterService, exporterService.Namespace)
 
-	service, err := f.CreateService(kubeEventsExporterService, ns)
-	if err != nil {
-		return nil, errors.Wrap(err, "create kube-events-exporter service")
-	}
-	finalizers = append(finalizers, func() error { return f.DeleteService(service.Namespace, service.Name) })
-
-	serviceURL := fmt.Sprintf("http://localhost:8001/api/v1/namespaces/%s/services/%s", ns, service.ObjectMeta.Name)
-	eventServerURL := fmt.Sprintf("%s:%s/proxy/", serviceURL, service.Spec.Ports[0].Name)
-	exporterServerURL := fmt.Sprintf("%s:%s/proxy/", serviceURL, service.Spec.Ports[1].Name)
+	serviceURL := fmt.Sprintf("http://localhost:8001/api/v1/namespaces/%s/services/%s", exporterService.Namespace, exporterService.ObjectMeta.Name)
+	eventServerURL := fmt.Sprintf("%s:%s/proxy/", serviceURL, exporterService.Spec.Ports[0].Name)
+	exporterServerURL := fmt.Sprintf("%s:%s/proxy/", serviceURL, exporterService.Spec.Ports[1].Name)
 
 	deployment, err := MakeDeployment("../../manifests/kube-events-exporter-deployment.yaml")
 	if err != nil {
-		return nil, errors.Wrap(err, "make kube-events-exporter deployment")
+		t.Fatal(err)
 	}
 
-	if exporterImage != "" {
+	if f.ExporterImage != "" {
 		// Override kube-events-exporter image with the one specified.
-		deployment.Spec.Template.Spec.Containers[0].Image = exporterImage
+		deployment.Spec.Template.Spec.Containers[0].Image = f.ExporterImage
 	}
 
 	// TODO: create rbac configuration
 	deployment.Spec.Template.Spec.ServiceAccountName = ""
-
-	deployment.Namespace = ns
-	err = f.CreateDeployment(deployment)
-	if err != nil {
-		return nil, errors.Wrap(err, "create kube-events-exporter deployment")
-	}
-	finalizers = append(finalizers, func() error { return f.DeleteDeployment(deployment.Namespace, deployment.Name) })
+	deployment = f.CreateDeployment(t, deployment, exporterNamespace)
 
 	err = f.WaitUntilDeploymentReady(deployment.Namespace, deployment.Name)
 	if err != nil {
-		return nil, errors.Wrap(err, "kube-events-exporter not ready")
+		t.Fatal(err)
 	}
 
 	exporter := &KubeEventsExporter{
 		Deployment:        deployment,
 		EventServerURL:    eventServerURL,
 		ExporterServerURL: exporterServerURL,
-		Finalizers:        finalizers,
 	}
 
-	return exporter, nil
+	return exporter
 }
 
-// ResetExporterMetrics resets the exporter metrics by recreating
-// kube-events-exporter pod.
-func (f *Framework) ResetExporterMetrics() error {
-	// Delete kube-events-exporter pod.
-	err := f.UpdateDeploymentReplicas(f.Exporter.Deployment, 0)
-	if err != nil {
-		return errors.Wrapf(err, "update deployment %s replicas to 0", f.Exporter.Deployment.Name)
-	}
-
-	// Recreate kube-events-exporter pod.
-	err = f.UpdateDeploymentReplicas(f.Exporter.Deployment, 1)
-	if err != nil {
-		return errors.Wrapf(err, "update deployment %s replicas to 1", f.Exporter.Deployment.Name)
-	}
-
-	return nil
+// GetEventMetricFamilies gets metrics from the event server metrics endpoint
+// and converts them to Prometheus MetricFamily.
+func (e *KubeEventsExporter) GetEventMetricFamilies() (map[string]*dto.MetricFamily, error) {
+	return getMetricFamilies(e.EventServerURL)
 }
 
-func (f *Framework) getMetricFamilies(serverURL string) (map[string]*dto.MetricFamily, error) {
+// GetExporterMetricFamilies gets metrics from the exporter server metrics
+// endpoint and converts them to Prometheus MetricFamily.
+func (e *KubeEventsExporter) GetExporterMetricFamilies() (map[string]*dto.MetricFamily, error) {
+	return getMetricFamilies(e.ExporterServerURL)
+}
+
+func getMetricFamilies(serverURL string) (map[string]*dto.MetricFamily, error) {
 	u, err := url.Parse(serverURL)
 	if err != nil {
 		return nil, errors.Wrapf(err, "parse url: %s", serverURL)
@@ -147,7 +131,8 @@ func (f *Framework) getMetricFamilies(serverURL string) (map[string]*dto.MetricF
 		return nil, errors.Wrapf(err, "send GET request %s", u.String())
 	}
 
-	families, err := f.MetricsParser.TextToMetricFamilies(resp.Body)
+	parser := expfmt.TextParser{}
+	families, err := parser.TextToMetricFamilies(resp.Body)
 	if err != nil {
 		return nil, errors.Wrapf(err, "parse text to metric families %s", u.String())
 	}
@@ -158,16 +143,4 @@ func (f *Framework) getMetricFamilies(serverURL string) (map[string]*dto.MetricF
 	}
 
 	return families, nil
-}
-
-// GetEventMetricFamilies gets metrics from the event server metrics endpoint
-// and converts them to Prometheus MetricFamily.
-func (f *Framework) GetEventMetricFamilies() (map[string]*dto.MetricFamily, error) {
-	return f.getMetricFamilies(f.Exporter.EventServerURL)
-}
-
-// GetExporterMetricFamilies gets metrics from the exporter server metrics
-// endpoint and converts them to Prometheus MetricFamily.
-func (f *Framework) GetExporterMetricFamilies() (map[string]*dto.MetricFamily, error) {
-	return f.getMetricFamilies(f.Exporter.ExporterServerURL)
 }

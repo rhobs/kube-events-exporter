@@ -22,38 +22,32 @@ import (
 )
 
 func TestExporterRequestsTotal(t *testing.T) {
-	expectedTotals := []int{5, 10}
+	exporter := framework.CreateKubeEventsExporter(t)
+	nbRequests := 10
 
-	for _, expectedTotal := range expectedTotals {
-		err := framework.ResetExporterMetrics()
+	for i := 0; i < nbRequests; i++ {
+		resp, err := http.Get(exporter.EventServerURL + "/metrics")
 		if err != nil {
-			t.Fatalf("Could not reset exporter metrics: %v\n", err)
+			t.Fatalf("failed to get event metrics: %v", err)
 		}
-
-		for i := 0; i < expectedTotal; i++ {
-			resp, err := http.Get(framework.Exporter.EventServerURL + "/metrics")
-			if err != nil {
-				t.Fatalf("Could not get event metrics: %v\n", err)
-			}
-			err = resp.Body.Close()
-			if err != nil {
-				t.Logf("Could not close response body: %v\n", err)
-			}
-		}
-
-		families, err := framework.GetExporterMetricFamilies()
+		err = resp.Body.Close()
 		if err != nil {
-			t.Fatalf("Could not get exporter metrics: %v\n", err)
+			t.Errorf("failed to close response body: %v", err)
 		}
+	}
 
-		requestsTotal, found := families["kube_events_exporter_requests_total"]
-		if !found {
-			t.Fatalf("kube_events_exporter_requests_total not found in metrics.\n")
-		}
+	families, err := exporter.GetExporterMetricFamilies()
+	if err != nil {
+		t.Fatalf("failed to get exporter metrics: %v\n", err)
+	}
 
-		requestsTotalValue := int(requestsTotal.Metric[0].Counter.GetValue())
-		if requestsTotalValue != expectedTotal {
-			t.Fatalf("kube_events_exporter_requests_total value is %d instead of %d.\n", requestsTotalValue, expectedTotal)
-		}
+	requestsTotal, found := families["kube_events_exporter_requests_total"]
+	if !found {
+		t.Fatalf("kube_events_exporter_requests_total not found in metrics.")
+	}
+
+	requestsTotalValue := int(requestsTotal.Metric[0].Counter.GetValue())
+	if requestsTotalValue != nbRequests {
+		t.Fatalf("kube_events_exporter_requests_total value is %d instead of %d.", requestsTotalValue, nbRequests)
 	}
 }
