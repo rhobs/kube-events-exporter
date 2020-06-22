@@ -41,7 +41,7 @@ func main() {
 
 	err := opts.Parse()
 	if err != nil {
-		klog.Fatalf("Error: %s", err)
+		klog.Fatalf("failed to parse options: %v", err)
 	}
 
 	if opts.Version {
@@ -51,12 +51,12 @@ func main() {
 
 	kubeConfig, err := clientcmd.BuildConfigFromFlags(opts.Apiserver, opts.Kubeconfig)
 	if err != nil {
-		klog.Fatalf("Could not create cluster config from flags: %v", err)
+		klog.Fatalf("failed to create cluster config from flags: %v", err)
 	}
 
 	kubeClient, err := kubernetes.NewForConfig(kubeConfig)
 	if err != nil {
-		klog.Fatalf("Could not create Kubernetes client: %v", err)
+		klog.Fatalf("failed to create cluster config: %v", err)
 	}
 
 	eventRegistry := prometheus.NewRegistry()
@@ -79,12 +79,12 @@ func main() {
 	eventListenAddr := net.JoinHostPort(opts.Host, strconv.Itoa(opts.Port))
 	eventListener, err := net.Listen("tcp", eventListenAddr)
 	if err != nil {
-		klog.Fatalf("Could not start listening on: %v: %v", eventListenAddr, err)
+		klog.Fatalf("failed to start listening on: %v: %v", eventListenAddr, err)
 	}
 	exporterListenAddr := net.JoinHostPort(opts.ExporterHost, strconv.Itoa(opts.ExporterPort))
 	exporterListener, err := net.Listen("tcp", exporterListenAddr)
 	if err != nil {
-		klog.Fatalf("Could not start listening on: %v: %v", exporterListenAddr, err)
+		klog.Fatalf("failed to start listening on: %v: %v", exporterListenAddr, err)
 	}
 
 	// Serve metrics about the exporter.

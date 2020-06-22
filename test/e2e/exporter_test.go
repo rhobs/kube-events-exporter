@@ -43,11 +43,11 @@ func TestExporterRequestsTotal(t *testing.T) {
 
 	requestsTotal, found := families["kube_events_exporter_requests_total"]
 	if !found {
-		t.Fatalf("kube_events_exporter_requests_total not found in metrics.")
+		t.Fatal("kube_events_exporter_requests_total not found in metrics")
 	}
 
 	requestsTotalValue := int(requestsTotal.Metric[0].Counter.GetValue())
 	if requestsTotalValue != nbRequests {
-		t.Fatalf("kube_events_exporter_requests_total value is %d instead of %d.", requestsTotalValue, nbRequests)
+		t.Fatalf("kube_events_exporter_requests_total value is %d instead of %d", requestsTotalValue, nbRequests)
 	}
 }

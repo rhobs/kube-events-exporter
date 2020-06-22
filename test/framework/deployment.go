@@ -44,7 +44,7 @@ func (f *Framework) GetDeployment(ns, name string) (*appsv1.Deployment, error) {
 func (f *Framework) CreateDeployment(t *testing.T, deployment *appsv1.Deployment, ns string) *appsv1.Deployment {
 	deployment, err := f.KubeClient.AppsV1().Deployments(ns).Create(context.TODO(), deployment, metav1.CreateOptions{})
 	if err != nil {
-		t.Fatalf("create deployment %s: %v\n", deployment.Name, err)
+		t.Fatalf("create deployment %s: %v", deployment.Name, err)
 	}
 
 	t.Cleanup(func() {

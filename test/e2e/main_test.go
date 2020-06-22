@@ -46,7 +46,7 @@ func TestMain(m *testing.M) {
 	var err error
 	framework, err = exporterFramework.NewFramework(*kubeconfig, *exporterImage)
 	if err != nil {
-		log.Fatalf("setup test framework: %v\n", err)
+		log.Fatalf("setup test framework: %v", err)
 	}
 
 	os.Exit(m.Run())

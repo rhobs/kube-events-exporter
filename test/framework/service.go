@@ -28,13 +28,13 @@ import (
 func (f *Framework) CreateService(t *testing.T, service *v1.Service, ns string) *v1.Service {
 	service, err := f.KubeClient.CoreV1().Services(ns).Create(context.TODO(), service, metav1.CreateOptions{})
 	if err != nil {
-		t.Fatalf("Could not create service %s: %v\n", service.Name, err)
+		t.Fatalf("create service %s: %v", service.Name, err)
 	}
 
 	t.Cleanup(func() {
 		err := f.DeleteService(service.Namespace, service.Name)
 		if err != nil {
-			t.Fatalf("Could not delete service %s: %v\n", service.Name, err)
+			t.Fatalf("delete service %s: %v", service.Name, err)
 		}
 	})
 
