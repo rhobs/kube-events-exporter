@@ -68,8 +68,7 @@ func (collector *EventCollector) Run(stopCh <-chan struct{}) {
 		AddFunc: func(obj interface{}) {
 			ev := obj.(*v1.Event)
 			// Count only Events created after the exporter starts running.
-			if beforeLastEvent(startRunning, ev) {
-				// FIXME: take into account the event count.
+			if beforeLatestEvent(startRunning, ev) {
 				collector.increaseEventsTotal(ev, 1)
 			}
 		},
@@ -77,7 +76,7 @@ func (collector *EventCollector) Run(stopCh <-chan struct{}) {
 			oldEv := oldObj.(*v1.Event)
 			newEv := newObj.(*v1.Event)
 			// Count only Events updated after the exporter starts running.
-			if beforeLastEvent(startRunning, newEv) {
+			if beforeLatestEvent(startRunning, newEv) {
 				nbNew := updatedEventNb(oldEv, newEv)
 				collector.increaseEventsTotal(newEv, float64(nbNew))
 			}
@@ -95,12 +94,25 @@ func (collector *EventCollector) increaseEventsTotal(event *v1.Event, nbNew floa
 	}).Add(nbNew)
 }
 
-func beforeLastEvent(t time.Time, ev *v1.Event) bool {
-	if ev.Series != nil && !ev.Series.LastObservedTime.IsZero() {
-		return t.Before(ev.Series.LastObservedTime.Time)
+func beforeLatestEvent(t time.Time, ev *v1.Event) bool {
+	eventTimes := []time.Time{
+		ev.FirstTimestamp.Time,
+		ev.LastTimestamp.Time,
+		ev.EventTime.Time,
 	}
 
-	return t.Before(ev.LastTimestamp.Time)
+	if ev.Series != nil {
+		eventTimes = append(eventTimes, ev.Series.LastObservedTime.Time)
+	}
+
+	latest := ev.CreationTimestamp.Time
+	for _, eventTime := range eventTimes {
+		if eventTime.After(latest) {
+			latest = eventTime
+		}
+	}
+
+	return t.Before(latest)
 }
 
 func updatedEventNb(oldEv, newEv *v1.Event) int32 {
