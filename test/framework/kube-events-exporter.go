@@ -32,9 +32,17 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var (
+const (
+	serviceAccountManifest     = "../../manifests/kube-events-exporter-service-account.yaml"
+	clusterRoleManifest        = "../../manifests/kube-events-exporter-cluster-role.yaml"
+	clusterRoleBindingManifest = "../../manifests/kube-events-exporter-cluster-role-binding.yaml"
+	deploymentManifest         = "../../manifests/kube-events-exporter-deployment.yaml"
+
 	exporterNamespace = "default"
-	exporterService   = &v1.Service{
+)
+
+var (
+	exporterService = &v1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
 				"app.kubernetes.io/component": "events-exporter",
@@ -73,24 +81,38 @@ type KubeEventsExporter struct {
 // CreateKubeEventsExporter creates kube-events-exporter deployment inside
 // of the specified namespace.
 func (f *Framework) CreateKubeEventsExporter(t *testing.T) *KubeEventsExporter {
+	sa, err := MakeServiceAccount(serviceAccountManifest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.CreateServiceAccount(t, sa, exporterNamespace)
+
+	cr, err := MakeClusterRole(clusterRoleManifest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.CreateClusterRole(t, cr)
+
+	crb, err := MakeClusterRoleBinding(clusterRoleBindingManifest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.CreateClusterRoleBinding(t, crb)
+
 	f.CreateService(t, exporterService, exporterService.Namespace)
 
 	serviceURL := fmt.Sprintf("http://localhost:8001/api/v1/namespaces/%s/services/%s", exporterService.Namespace, exporterService.ObjectMeta.Name)
 	eventServerURL := fmt.Sprintf("%s:%s/proxy/", serviceURL, exporterService.Spec.Ports[0].Name)
 	exporterServerURL := fmt.Sprintf("%s:%s/proxy/", serviceURL, exporterService.Spec.Ports[1].Name)
 
-	deployment, err := MakeDeployment("../../manifests/kube-events-exporter-deployment.yaml")
+	deployment, err := MakeDeployment(deploymentManifest)
 	if err != nil {
 		t.Fatal(err)
 	}
-
 	if f.ExporterImage != "" {
 		// Override kube-events-exporter image with the one specified.
 		deployment.Spec.Template.Spec.Containers[0].Image = f.ExporterImage
 	}
-
-	// TODO: create rbac configuration
-	deployment.Spec.Template.Spec.ServiceAccountName = ""
 	deployment = f.CreateDeployment(t, deployment, exporterNamespace)
 
 	err = f.WaitUntilDeploymentReady(deployment.Namespace, deployment.Name)
