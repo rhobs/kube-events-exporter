@@ -23,6 +23,13 @@ import (
 	"github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes/scheme"
+	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/tools/record"
+)
+
+const (
+	agentName = "kube-events-exporter-e2e"
 )
 
 // CreateEvent creates the given Event.
@@ -58,4 +65,11 @@ func (f *Framework) DeleteEvent(ns, name string) error {
 		return errors.Wrapf(err, "delete event %s", name)
 	}
 	return nil
+}
+
+// NewRecordEventRecorder constructs a record.EventRecorder.
+func (f *Framework) NewRecordEventRecorder() record.EventRecorder {
+	eventBroadcaster := record.NewBroadcaster()
+	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: f.KubeClient.CoreV1().Events("")})
+	return eventBroadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: agentName})
 }
