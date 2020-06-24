@@ -19,13 +19,10 @@ package framework
 import (
 	"context"
 	"testing"
-	"time"
 
 	"github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 // CreateEvent creates the given Event.
@@ -51,33 +48,5 @@ func (f *Framework) DeleteEvent(ns, name string) error {
 	if err != nil {
 		return errors.Wrapf(err, "delete event %s", name)
 	}
-	return nil
-}
-
-// GetEvent gets the given Event.
-func (f *Framework) GetEvent(ns, name string) (*v1.Event, error) {
-	event, err := f.KubeClient.CoreV1().Events(ns).Get(context.TODO(), name, metav1.GetOptions{})
-	if err != nil {
-		return nil, errors.Wrapf(err, "get event %s", name)
-	}
-	return event, nil
-}
-
-// WaitUntilEventReady waits until given Event is ready.
-func (f *Framework) WaitUntilEventReady(ns, name string) error {
-	err := wait.Poll(time.Second, f.DefaultTimeout, func() (bool, error) {
-		_, err := f.GetEvent(ns, name)
-		if err != nil {
-			if apierrors.IsNotFound(err) {
-				return false, nil
-			}
-			return false, err
-		}
-		return true, nil
-	})
-	if err != nil {
-		return errors.Wrapf(err, "event %s not ready", name)
-	}
-
 	return nil
 }

@@ -17,7 +17,6 @@ limitations under the License.
 package e2e
 
 import (
-	"reflect"
 	"testing"
 
 	dto "github.com/prometheus/client_model/go"
@@ -41,22 +40,8 @@ func TestEventCreation(t *testing.T) {
 		Type:   v1.EventTypeNormal,
 	}
 	event = framework.CreateEvent(t, event, event.InvolvedObject.Namespace)
-	err := framework.WaitUntilEventReady(event.Namespace, event.Name)
-	if err != nil {
-		t.Fatal(err)
-	}
 
-	families, err := exporter.GetEventMetricFamilies()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	eventsTotal, found := families["kube_events_total"]
-	if !found {
-		t.Fatal("kube_events_total metric not found")
-	}
-
-	expectedMetric := dto.Metric{
+	expectedMetric := &dto.Metric{
 		Label: []*dto.LabelPair{
 			{Name: stringPtr("involved_object_kind"), Value: &event.InvolvedObject.Kind},
 			{Name: stringPtr("involved_object_namespace"), Value: &event.InvolvedObject.Namespace},
@@ -66,15 +51,10 @@ func TestEventCreation(t *testing.T) {
 		Counter: &dto.Counter{Value: float64Ptr(1)},
 	}
 
-	for _, metric := range eventsTotal.Metric {
-		if reflect.DeepEqual(metric.Label, expectedMetric.Label) {
-			if !reflect.DeepEqual(metric.Counter, expectedMetric.Counter) {
-				t.Fatalf("kube_events_total value is %v instead of %v", metric.Counter.GetValue(), expectedMetric.Counter.GetValue())
-			}
-			return
-		}
+	err := framework.PollMetric(exporter.GetEventMetricFamilies, "kube_events_total", expectedMetric)
+	if err != nil {
+		t.Fatal(err)
 	}
-	t.Fatal("kube_events_total metric not found")
 }
 
 func stringPtr(s string) *string {
