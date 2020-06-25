@@ -30,7 +30,6 @@ import (
 	"github.com/rhobs/kube-events-exporter/internal/options"
 	"github.com/rhobs/kube-events-exporter/internal/version"
 
-	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog"
@@ -52,18 +51,21 @@ func main() {
 
 	kubeConfig, err := clientcmd.BuildConfigFromFlags(opts.Apiserver, opts.Kubeconfig)
 	if err != nil {
-		klog.Fatalf("Could not create cluster config: %v", err)
+		klog.Fatalf("Could not create cluster config from flags: %v", err)
+	}
+
+	kubeClient, err := kubernetes.NewForConfig(kubeConfig)
+	if err != nil {
+		klog.Fatalf("Could not create Kubernetes client: %v", err)
 	}
 
 	eventRegistry := prometheus.NewRegistry()
-	eventCollector := collector.NewEventCollector()
-	eventCollector.WithInformerFactory(informers.NewSharedInformerFactory(
-		kubernetes.NewForConfigOrDie(kubeConfig),
-		0,
-	))
+	eventCollector := collector.NewEventCollector(kubeClient, opts)
+
 	stopCh := make(chan struct{})
-	eventCollector.Run(stopCh)
 	defer close(stopCh)
+
+	eventCollector.Run(stopCh)
 	eventRegistry.MustRegister(eventCollector)
 
 	exporterRegistry := prometheus.NewRegistry()
