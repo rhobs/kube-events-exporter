@@ -26,6 +26,11 @@ import (
 	"k8s.io/klog"
 )
 
+const (
+	// EventTypesAll is the argument to specify to allow all Event types.
+	EventTypesAll = ""
+)
+
 // Options are the configurable parameters for kube-events-exporter.
 type Options struct {
 	Apiserver    string
@@ -36,6 +41,7 @@ type Options struct {
 	ExporterPort int
 	Version      bool
 
+	EventTypes               []string
 	InvolvedObjectNamespaces []string
 
 	flags *pflag.FlagSet
@@ -67,6 +73,8 @@ func (o *Options) AddFlags() {
 	o.flags.StringVar(&o.ExporterHost, "exporter-host", "0.0.0.0", "Host to expose kube-events-exporter own metrics on.")
 	o.flags.IntVar(&o.ExporterPort, "exporter-port", 8081, "Port to expose kube-events-exporter own metrics on.")
 	o.flags.BoolVar(&o.Version, "version", false, "kube-events-exporter version information")
+
+	o.flags.StringArrayVar(&o.EventTypes, "event-types", []string{EventTypesAll}, "Event types filter. Defaults to all types.")
 	o.flags.StringArrayVar(&o.InvolvedObjectNamespaces, "involved-object-namespaces", []string{metav1.NamespaceAll}, "Events involved object namespace filter. Defaults to all namespaces.")
 }
 
