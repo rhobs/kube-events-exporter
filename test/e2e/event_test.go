@@ -18,6 +18,7 @@ package e2e
 
 import (
 	"testing"
+	"time"
 
 	dto "github.com/prometheus/client_model/go"
 	v1 "k8s.io/api/core/v1"
@@ -94,6 +95,42 @@ func TestEventUpdate(t *testing.T) {
 	err = framework.PollMetric(exporter.GetEventMetricFamilies, "kube_events_total", expectedMetric)
 	if err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestNotReconciling(t *testing.T) {
+	event := &v1.Event{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test",
+		},
+		InvolvedObject: v1.ObjectReference{
+			Kind:      "Pod",
+			Namespace: "default",
+		},
+		Count:  1,
+		Reason: "test",
+		Type:   v1.EventTypeNormal,
+	}
+	event = framework.CreateEvent(t, event, event.InvolvedObject.Namespace)
+	// The exporter reconcile Events created during the same second as itself.
+	// Thus, to ensure that this Event is not reconciled, we sleep one second.
+	time.Sleep(time.Second)
+
+	exporter := framework.CreateKubeEventsExporter(t)
+
+	unexpectedMetric := &dto.Metric{
+		Label: []*dto.LabelPair{
+			{Name: stringPtr("involved_object_kind"), Value: &event.InvolvedObject.Kind},
+			{Name: stringPtr("involved_object_namespace"), Value: &event.InvolvedObject.Namespace},
+			{Name: stringPtr("reason"), Value: &event.Reason},
+			{Name: stringPtr("type"), Value: &event.Type},
+		},
+		Counter: &dto.Counter{Value: float64Ptr(1)},
+	}
+
+	err := framework.PollMetric(exporter.GetEventMetricFamilies, "kube_events_total", unexpectedMetric)
+	if err == nil {
+		t.Fatal("kube-events-exporter should not reconcile existing Events")
 	}
 }
 
