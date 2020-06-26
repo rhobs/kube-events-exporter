@@ -25,6 +25,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	eventsTotal = "kube_events_total"
+)
+
 func TestEventCreation(t *testing.T) {
 	exporter := framework.CreateKubeEventsExporter(t)
 
@@ -52,7 +56,7 @@ func TestEventCreation(t *testing.T) {
 		Counter: &dto.Counter{Value: float64Ptr(1)},
 	}
 
-	err := framework.PollMetric(exporter.GetEventMetricFamilies, "kube_events_total", expectedMetric)
+	err := framework.PollMetric(exporter.GetEventMetricFamilies, eventsTotal, expectedMetric)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -92,7 +96,47 @@ func TestEventUpdate(t *testing.T) {
 		Counter: &dto.Counter{Value: float64Ptr(2)},
 	}
 
-	err = framework.PollMetric(exporter.GetEventMetricFamilies, "kube_events_total", expectedMetric)
+	err = framework.PollMetric(exporter.GetEventMetricFamilies, eventsTotal, expectedMetric)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestUpdateExistingEvent(t *testing.T) {
+	event := &v1.Event{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test",
+		},
+		InvolvedObject: v1.ObjectReference{
+			Kind:      "Pod",
+			Namespace: "default",
+		},
+		Count:  1,
+		Reason: "test-update-existing",
+		Type:   v1.EventTypeNormal,
+	}
+	event = framework.CreateEvent(t, event, event.InvolvedObject.Namespace)
+
+	exporter := framework.CreateKubeEventsExporter(t)
+
+	event.Count++
+	event.LastTimestamp = metav1.Now()
+	event, err := framework.UpdateEvent(event, event.Namespace)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expectedMetric := &dto.Metric{
+		Label: []*dto.LabelPair{
+			{Name: stringPtr("involved_object_kind"), Value: &event.InvolvedObject.Kind},
+			{Name: stringPtr("involved_object_namespace"), Value: &event.InvolvedObject.Namespace},
+			{Name: stringPtr("reason"), Value: &event.Reason},
+			{Name: stringPtr("type"), Value: &event.Type},
+		},
+		Counter: &dto.Counter{Value: float64Ptr(1)},
+	}
+
+	err = framework.PollMetric(exporter.GetEventMetricFamilies, eventsTotal, expectedMetric)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -128,7 +172,7 @@ func TestNotReconciling(t *testing.T) {
 		Counter: &dto.Counter{Value: float64Ptr(1)},
 	}
 
-	err := framework.PollMetric(exporter.GetEventMetricFamilies, "kube_events_total", unexpectedMetric)
+	err := framework.PollMetric(exporter.GetEventMetricFamilies, eventsTotal, unexpectedMetric)
 	if err == nil {
 		t.Fatal("kube-events-exporter should not reconcile existing Events")
 	}
@@ -158,7 +202,7 @@ func TestRecordEventRecorderCreate(t *testing.T) {
 		Counter: &dto.Counter{Value: float64Ptr(1)},
 	}
 
-	err := framework.PollMetric(exporter.GetEventMetricFamilies, "kube_events_total", expectedMetric)
+	err := framework.PollMetric(exporter.GetEventMetricFamilies, eventsTotal, expectedMetric)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -189,7 +233,7 @@ func TestRecordEventRecorderUpdate(t *testing.T) {
 		Counter: &dto.Counter{Value: float64Ptr(2)},
 	}
 
-	err := framework.PollMetric(exporter.GetEventMetricFamilies, "kube_events_total", expectedMetric)
+	err := framework.PollMetric(exporter.GetEventMetricFamilies, eventsTotal, expectedMetric)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -221,7 +265,7 @@ func TestEventsEventRecorderCreate(t *testing.T) {
 		Counter: &dto.Counter{Value: float64Ptr(1)},
 	}
 
-	err := framework.PollMetric(exporter.GetEventMetricFamilies, "kube_events_total", expectedMetric)
+	err := framework.PollMetric(exporter.GetEventMetricFamilies, eventsTotal, expectedMetric)
 	if err != nil {
 		t.Fatal(err)
 	}
