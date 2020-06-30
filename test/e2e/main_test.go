@@ -24,7 +24,6 @@ import (
 	"testing"
 
 	exporterFramework "github.com/rhobs/kube-events-exporter/test/framework"
-	"golang.org/x/sync/errgroup"
 )
 
 var (
@@ -47,25 +46,16 @@ func TestMain(m *testing.M) {
 	var err error
 	framework, err = exporterFramework.NewFramework(*kubeconfig, *exporterImage)
 	if err != nil {
-		log.Fatalf("setup test framework: %v\n", err)
+		log.Fatalf("setup test framework: %v", err)
 	}
 
-	exitCode := m.Run()
-
-	var eg errgroup.Group
-	for _, finalizer := range framework.Exporter.Finalizers {
-		eg.Go(finalizer)
-	}
-	err = eg.Wait()
-	if err != nil {
-		log.Printf("cleanup test environment: %v\n", err)
-	}
-
-	os.Exit(exitCode)
+	os.Exit(m.Run())
 }
 
 func TestKubeEventsExporterRunning(t *testing.T) {
-	resp, err := http.Get(framework.Exporter.EventServerURL)
+	exporter := framework.CreateKubeEventsExporter(t)
+
+	resp, err := http.Get(exporter.EventServerURL)
 	if err != nil {
 		t.Fatalf("event server not running %v", err)
 	}
@@ -74,7 +64,7 @@ func TestKubeEventsExporterRunning(t *testing.T) {
 		t.Log(err)
 	}
 
-	resp, err = http.Get(framework.Exporter.ExporterServerURL)
+	resp, err = http.Get(exporter.ExporterServerURL)
 	if err != nil {
 		t.Fatalf("exporter server not running %v", err)
 	}

@@ -18,26 +18,34 @@ package framework
 
 import (
 	"context"
+	"testing"
 
-	"github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // CreateService creates the given service.
-func (f *Framework) CreateService(service *v1.Service, ns string) (*v1.Service, error) {
+func (f *Framework) CreateService(t *testing.T, service *v1.Service, ns string) *v1.Service {
 	service, err := f.KubeClient.CoreV1().Services(ns).Create(context.TODO(), service, metav1.CreateOptions{})
 	if err != nil {
-		return nil, errors.Wrapf(err, "create service %s", service.Name)
+		t.Fatalf("create service %s: %v", service.Name, err)
 	}
-	return service, nil
+
+	t.Cleanup(func() {
+		err := f.DeleteService(service.Namespace, service.Name)
+		if err != nil {
+			t.Fatalf("delete service %s: %v", service.Name, err)
+		}
+	})
+
+	return service
 }
 
 // DeleteService deletes the given service.
 func (f *Framework) DeleteService(ns, name string) error {
 	err := f.KubeClient.CoreV1().Services(ns).Delete(context.TODO(), name, metav1.DeleteOptions{})
 	if err != nil {
-		return errors.Wrapf(err, "delete service %s", name)
+		return err
 	}
 	return nil
 }

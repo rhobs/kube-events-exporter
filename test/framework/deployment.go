@@ -20,11 +20,13 @@ import (
 	"context"
 	"io/ioutil"
 	"path/filepath"
+	"testing"
 	"time"
 
 	"github.com/ghodss/yaml"
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
@@ -39,12 +41,20 @@ func (f *Framework) GetDeployment(ns, name string) (*appsv1.Deployment, error) {
 }
 
 // CreateDeployment creates the given deployment.
-func (f *Framework) CreateDeployment(deployment *appsv1.Deployment) error {
-	_, err := f.KubeClient.AppsV1().Deployments(deployment.Namespace).Create(context.TODO(), deployment, metav1.CreateOptions{})
+func (f *Framework) CreateDeployment(t *testing.T, deployment *appsv1.Deployment, ns string) *appsv1.Deployment {
+	deployment, err := f.KubeClient.AppsV1().Deployments(ns).Create(context.TODO(), deployment, metav1.CreateOptions{})
 	if err != nil {
-		return errors.Wrapf(err, "create deployment %s", deployment.Name)
+		t.Fatalf("create deployment %s: %v", deployment.Name, err)
 	}
-	return nil
+
+	t.Cleanup(func() {
+		err := f.DeleteDeployment(deployment.Namespace, deployment.Name)
+		if err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	return deployment
 }
 
 // MakeDeployment creates a deployment object from yaml manifest.
@@ -63,15 +73,6 @@ func MakeDeployment(manifestPath string) (*appsv1.Deployment, error) {
 	return &deployment, nil
 }
 
-// UpdateDeployment updates the given deployment.
-func (f *Framework) UpdateDeployment(deployment *appsv1.Deployment) error {
-	_, err := f.KubeClient.AppsV1().Deployments(deployment.Namespace).Update(context.TODO(), deployment, metav1.UpdateOptions{})
-	if err != nil {
-		return errors.Wrapf(err, "update deployment %s", deployment.Name)
-	}
-	return nil
-}
-
 // DeleteDeployment deletes the given deployment.
 func (f *Framework) DeleteDeployment(ns, name string) error {
 	err := f.KubeClient.AppsV1().Deployments(ns).Delete(context.TODO(), name, metav1.DeleteOptions{})
@@ -83,32 +84,18 @@ func (f *Framework) DeleteDeployment(ns, name string) error {
 
 // WaitUntilDeploymentReady waits until given deployment is ready.
 func (f *Framework) WaitUntilDeploymentReady(ns, name string) error {
-	err := wait.Poll(5*time.Second, f.DefaultTimeout, func() (bool, error) {
+	err := wait.Poll(time.Second, f.DefaultTimeout, func() (bool, error) {
 		deployment, err := f.GetDeployment(ns, name)
 		if err != nil {
-			return false, nil
+			if apierrors.IsNotFound(err) {
+				return false, nil
+			}
+			return false, err
 		}
 		return deployment.Status.ReadyReplicas == *deployment.Spec.Replicas, nil
 	})
 	if err != nil {
 		return errors.Wrapf(err, "deployment %s pods are not ready", name)
-	}
-
-	return nil
-}
-
-// UpdateDeploymentReplicas updates the number of replicas of the given
-// deployment.
-func (f *Framework) UpdateDeploymentReplicas(deployment *appsv1.Deployment, replicas int32) error {
-	deployment.Spec.Replicas = &replicas
-	err := f.UpdateDeployment(deployment)
-	if err != nil {
-		return errors.Wrapf(err, "update deployment %s replicas", deployment.Name)
-	}
-
-	err = f.WaitUntilDeploymentReady(deployment.Namespace, deployment.Name)
-	if err != nil {
-		return errors.Wrapf(err, "deployment %s not ready after replicas update.", deployment.Name)
 	}
 
 	return nil
