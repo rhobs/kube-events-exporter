@@ -22,6 +22,7 @@ import (
 	"net/url"
 	"path"
 	"testing"
+	"time"
 
 	"github.com/pkg/errors"
 	dto "github.com/prometheus/client_model/go"
@@ -30,6 +31,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 var (
@@ -93,18 +95,37 @@ func (f *Framework) CreateKubeEventsExporter(t *testing.T) *KubeEventsExporter {
 	deployment.Spec.Template.Spec.ServiceAccountName = ""
 	deployment = f.CreateDeployment(t, deployment, exporterNamespace)
 
-	err = f.WaitUntilDeploymentReady(deployment.Namespace, deployment.Name)
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	exporter := &KubeEventsExporter{
 		Deployment:        deployment,
 		EventServerURL:    eventServerURL,
 		ExporterServerURL: exporterServerURL,
 	}
 
+	err = f.waitUntilExporterReady(exporter)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	return exporter
+}
+
+func (f *Framework) waitUntilExporterReady(exporter *KubeEventsExporter) error {
+	err := wait.Poll(time.Second, f.DefaultTimeout, func() (bool, error) {
+		resp, err := http.Get(fmt.Sprintf("%s/healthz", exporter.EventServerURL))
+		if err != nil {
+			return false, err
+		}
+		err = resp.Body.Close()
+		if err != nil {
+			return false, err
+		}
+
+		return resp.StatusCode == http.StatusOK, nil
+	})
+	if err != nil {
+		return errors.Wrapf(err, "kube-events-exporter not ready")
+	}
+	return nil
 }
 
 // GetEventMetricFamilies gets metrics from the event server metrics endpoint
