@@ -60,17 +60,17 @@ func main() {
 		klog.Fatalf("failed to create cluster config: %v", err)
 	}
 
+	exporterRegistry := prometheus.NewRegistry()
+	exporter.RegisterExporterCollectors(exporterRegistry)
+
 	eventRegistry := prometheus.NewRegistry()
-	eventCollector := collector.NewEventCollector(kubeClient, opts)
+	eventCollector := collector.NewEventCollector(kubeClient, exporterRegistry, opts)
 
 	stopCh := make(chan struct{})
 	defer close(stopCh)
 
 	eventCollector.Run(stopCh)
 	eventRegistry.MustRegister(eventCollector)
-
-	exporterRegistry := prometheus.NewRegistry()
-	exporter.RegisterExporterCollectors(exporterRegistry)
 
 	eventMux := http.NewServeMux()
 	exporterhttp.RegisterEventsMuxHandlers(eventMux, eventRegistry, exporterRegistry)

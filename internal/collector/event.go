@@ -22,10 +22,10 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rhobs/kube-events-exporter/internal/options"
+	"github.com/rhobs/kube-events-exporter/pkg/informer"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 )
@@ -34,51 +34,49 @@ import (
 // to Kubernetes Events.
 type EventCollector struct {
 	eventsTotal *prometheus.CounterVec
+	metrics     *exporterMetrics
 
-	lock              sync.Mutex
-	informerFactories []informers.SharedInformerFactory
-	filter            eventFilter
+	lock      sync.Mutex
+	filter    eventFilter
+	informers []cache.SharedIndexInformer
 }
 
 // NewEventCollector returns a prometheus.Collector collecting metrics about
 // Kubernetes Events.
-func NewEventCollector(kubeClient kubernetes.Interface, opts *options.Options) *EventCollector {
-	var factories []informers.SharedInformerFactory
-	for _, ns := range opts.InvolvedObjectNamespaces {
-		for _, eventType := range opts.EventTypes {
-			factories = append(factories, newFilteredInformerFactory(kubeClient, ns, eventType))
-		}
-	}
-
+func NewEventCollector(kubeClient kubernetes.Interface, exporterRegistry *prometheus.Registry, opts *options.Options) *EventCollector {
 	collector := &EventCollector{
 		eventsTotal: prometheus.NewCounterVec(prometheus.CounterOpts{
 			Name: "kube_events_total",
 			Help: "Count of all Kubernetes Events",
 		}, []string{"type", "involved_object_namespace", "involved_object_kind", "reason"}),
 
-		lock:              sync.Mutex{},
-		informerFactories: factories,
+		lock: sync.Mutex{},
 		filter: eventFilter{
 			creationTimestamp: time.Now(),
 			apiGroups:         opts.InvolvedObjectAPIGroups,
 		},
+		metrics: newExporterMetrics(exporterRegistry),
 	}
 
-	collector.initInformers()
+	for iNs := range opts.InvolvedObjectNamespaces {
+		for iType := range opts.EventTypes {
+			inf := informer.NewInstrumentedEventInformer(
+				kubeClient,
+				metav1.NamespaceAll,
+				collector.metrics.listWatchMetrics,
+				0,
+				cache.Indexers{},
+				func(list *metav1.ListOptions) {
+					filterInvolvedObjectNs(list, opts.InvolvedObjectNamespaces[iNs])
+					filterEventType(list, opts.EventTypes[iType])
+				},
+			)
+			inf.AddEventHandler(collector.eventHandler())
 
+			collector.informers = append(collector.informers, inf)
+		}
+	}
 	return collector
-}
-
-func newFilteredInformerFactory(kubeClient kubernetes.Interface, ns, eventType string) informers.SharedInformerFactory {
-	return informers.NewFilteredSharedInformerFactory(
-		kubeClient,
-		0,
-		metav1.NamespaceAll,
-		func(list *metav1.ListOptions) {
-			filterInvolvedObjectNs(list, ns)
-			filterEventType(list, eventType)
-		},
-	)
 }
 
 // Describe implements the prometheus.Collector interface.
@@ -93,19 +91,12 @@ func (collector *EventCollector) Collect(ch chan<- prometheus.Metric) {
 
 // Run starts updating EventCollector metrics.
 func (collector *EventCollector) Run(stopCh <-chan struct{}) {
-	for _, factory := range collector.informerFactories {
-		go factory.Start(stopCh)
+	for _, informer := range collector.informers {
+		go informer.Run(stopCh)
 	}
 }
 
-func (collector *EventCollector) initInformers() {
-	for _, factory := range collector.informerFactories {
-		eventsTotalInformer := factory.Core().V1().Events().Informer()
-		eventsTotalInformer.AddEventHandler(collector.eventsTotalHandler())
-	}
-}
-
-func (collector *EventCollector) eventsTotalHandler() cache.ResourceEventHandler {
+func (collector *EventCollector) eventHandler() cache.ResourceEventHandler {
 	return cache.FilteringResourceEventHandler{
 		FilterFunc: collector.filter.filter,
 		Handler: &cache.ResourceEventHandlerFuncs{

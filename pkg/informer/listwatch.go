@@ -26,8 +26,36 @@ import (
 
 // ListWatchMetrics stores the pointers of list/watch counter metrics.
 type ListWatchMetrics struct {
-	WatchTotal *prometheus.CounterVec
 	ListTotal  *prometheus.CounterVec
+	WatchTotal *prometheus.CounterVec
+}
+
+// NewListWatchMetrics takes in a prometheus registry and initializes and
+// registers the kube_events_exporter_list_total and
+// kube_events_exporter_watch_total metrics.
+// It returns those registered metrics.
+func NewListWatchMetrics(registry *prometheus.Registry) *ListWatchMetrics {
+	metrics := &ListWatchMetrics{
+		ListTotal: prometheus.NewCounterVec(
+			prometheus.CounterOpts{
+				Name: "kube_events_exporter_list_total",
+				Help: "Number of total resource list in kube-events-exporter",
+			},
+			[]string{"result", "resource"},
+		),
+		WatchTotal: prometheus.NewCounterVec(
+			prometheus.CounterOpts{
+				Name: "kube_events_exporter_watch_total",
+				Help: "Number of total resource watch in kube-events-exporter",
+			},
+			[]string{"result", "resource"},
+		),
+	}
+	registry.MustRegister(
+		metrics.ListTotal,
+		metrics.WatchTotal,
+	)
+	return metrics
 }
 
 // InstrumentedListerWatcher provides the list/watch metrics with a cache
