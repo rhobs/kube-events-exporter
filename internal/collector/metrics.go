@@ -19,14 +19,30 @@ package collector
 import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rhobs/kube-events-exporter/pkg/informer"
+
+	v1 "k8s.io/api/core/v1"
 )
 
 type exporterMetrics struct {
+	eventsTotal      *prometheus.CounterVec
 	listWatchMetrics *informer.ListWatchMetrics
 }
 
 func newExporterMetrics(exporterRegistry *prometheus.Registry) *exporterMetrics {
 	return &exporterMetrics{
+		eventsTotal: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Name: "kube_events_total",
+			Help: "Count of all Kubernetes Events",
+		}, []string{"type", "involved_object_namespace", "involved_object_kind", "reason"}),
 		listWatchMetrics: informer.NewListWatchMetrics(exporterRegistry),
 	}
+}
+
+func (m *exporterMetrics) increaseEventsTotal(event *v1.Event, nbNew float64) {
+	m.eventsTotal.With(prometheus.Labels{
+		"type":                      event.Type,
+		"involved_object_namespace": event.InvolvedObject.Namespace,
+		"involved_object_kind":      event.InvolvedObject.Kind,
+		"reason":                    event.Reason,
+	}).Add(nbNew)
 }

@@ -33,9 +33,7 @@ import (
 // EventCollector is a prometeus.Collector that bundles all the metrics related
 // to Kubernetes Events.
 type EventCollector struct {
-	eventsTotal *prometheus.CounterVec
-	metrics     *exporterMetrics
-
+	metrics   *exporterMetrics
 	lock      sync.Mutex
 	filter    eventFilter
 	informers []cache.SharedIndexInformer
@@ -45,11 +43,6 @@ type EventCollector struct {
 // Kubernetes Events.
 func NewEventCollector(kubeClient kubernetes.Interface, exporterRegistry *prometheus.Registry, opts *options.Options) *EventCollector {
 	collector := &EventCollector{
-		eventsTotal: prometheus.NewCounterVec(prometheus.CounterOpts{
-			Name: "kube_events_total",
-			Help: "Count of all Kubernetes Events",
-		}, []string{"type", "involved_object_namespace", "involved_object_kind", "reason"}),
-
 		lock: sync.Mutex{},
 		filter: eventFilter{
 			creationTimestamp: time.Now(),
@@ -81,12 +74,12 @@ func NewEventCollector(kubeClient kubernetes.Interface, exporterRegistry *promet
 
 // Describe implements the prometheus.Collector interface.
 func (collector *EventCollector) Describe(ch chan<- *prometheus.Desc) {
-	collector.eventsTotal.Describe(ch)
+	collector.metrics.eventsTotal.Describe(ch)
 }
 
 // Collect implements the prometheus.Collector interface.
 func (collector *EventCollector) Collect(ch chan<- prometheus.Metric) {
-	collector.eventsTotal.Collect(ch)
+	collector.metrics.eventsTotal.Collect(ch)
 }
 
 // Run starts updating EventCollector metrics.
@@ -101,28 +94,23 @@ func (collector *EventCollector) eventHandler() cache.ResourceEventHandler {
 		FilterFunc: collector.filter.filter,
 		Handler: &cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
+				collector.lock.Lock()
+				defer collector.lock.Unlock()
+
 				ev := obj.(*v1.Event)
-				collector.increaseEventsTotal(ev, 1)
+				collector.metrics.increaseEventsTotal(ev, 1)
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
+				collector.lock.Lock()
+				defer collector.lock.Unlock()
+
 				oldEv := oldObj.(*v1.Event)
 				newEv := newObj.(*v1.Event)
 				nbNew := updatedEventNb(oldEv, newEv)
-				collector.increaseEventsTotal(newEv, float64(nbNew))
+				collector.metrics.increaseEventsTotal(newEv, float64(nbNew))
 			},
 		},
 	}
-}
-
-func (collector *EventCollector) increaseEventsTotal(event *v1.Event, nbNew float64) {
-	collector.lock.Lock()
-	collector.eventsTotal.With(prometheus.Labels{
-		"type":                      event.Type,
-		"involved_object_namespace": event.InvolvedObject.Namespace,
-		"involved_object_kind":      event.InvolvedObject.Kind,
-		"reason":                    event.Reason,
-	}).Add(nbNew)
-	collector.lock.Unlock()
 }
 
 func updatedEventNb(oldEv, newEv *v1.Event) int32 {
