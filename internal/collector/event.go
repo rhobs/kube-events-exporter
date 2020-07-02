@@ -44,7 +44,9 @@ type EventCollector struct {
 func NewEventCollector(kubeClient kubernetes.Interface, opts *options.Options) *EventCollector {
 	var factories []informers.SharedInformerFactory
 	for _, ns := range opts.InvolvedObjectNamespaces {
-		factories = append(factories, newFilteredInformerFactory(kubeClient, ns))
+		for _, eventType := range opts.EventTypes {
+			factories = append(factories, newFilteredInformerFactory(kubeClient, ns, eventType))
+		}
 	}
 
 	collector := &EventCollector{
@@ -62,13 +64,14 @@ func NewEventCollector(kubeClient kubernetes.Interface, opts *options.Options) *
 	return collector
 }
 
-func newFilteredInformerFactory(kubeClient kubernetes.Interface, ns string) informers.SharedInformerFactory {
+func newFilteredInformerFactory(kubeClient kubernetes.Interface, ns, eventType string) informers.SharedInformerFactory {
 	return informers.NewFilteredSharedInformerFactory(
 		kubeClient,
 		0,
 		metav1.NamespaceAll,
 		func(list *metav1.ListOptions) {
 			filterInvolvedObjectNs(list, ns)
+			filterEventType(list, eventType)
 		},
 	)
 }
@@ -167,5 +170,11 @@ func updatedEventNb(oldEv, newEv *v1.Event) int32 {
 func filterInvolvedObjectNs(list *metav1.ListOptions, ns string) {
 	if ns != metav1.NamespaceAll {
 		list.FieldSelector += ",involvedObject.namespace=" + ns
+	}
+}
+
+func filterEventType(list *metav1.ListOptions, eventType string) {
+	if eventType != options.EventTypesAll {
+		list.FieldSelector += ",type=" + eventType
 	}
 }
