@@ -29,6 +29,10 @@ import (
 const (
 	// EventTypesAll is the argument to specify to allow all Event types.
 	EventTypesAll = ""
+
+	// APIGroupsAll is the argument to specify to allow objects from all API
+	// groups.
+	APIGroupsAll = ""
 )
 
 // Options are the configurable parameters for kube-events-exporter.
@@ -42,6 +46,7 @@ type Options struct {
 	Version      bool
 
 	EventTypes               []string
+	InvolvedObjectAPIGroups  []string
 	InvolvedObjectNamespaces []string
 
 	flags *pflag.FlagSet
@@ -74,8 +79,9 @@ func (o *Options) AddFlags() {
 	o.flags.IntVar(&o.ExporterPort, "exporter-port", 8081, "Port to expose kube-events-exporter own metrics on.")
 	o.flags.BoolVar(&o.Version, "version", false, "kube-events-exporter version information")
 
-	o.flags.StringArrayVar(&o.EventTypes, "event-types", []string{EventTypesAll}, "Event types filter. Defaults to all types.")
-	o.flags.StringArrayVar(&o.InvolvedObjectNamespaces, "involved-object-namespaces", []string{metav1.NamespaceAll}, "Events involved object namespace filter. Defaults to all namespaces.")
+	o.flags.StringArrayVar(&o.EventTypes, "event-types", []string{EventTypesAll}, "List of allowed Event types. Defaults to all types.")
+	o.flags.StringArrayVar(&o.InvolvedObjectAPIGroups, "involved-object-api-groups", []string{APIGroupsAll}, "List of allowed Event involved object API groups. Defaults to all API groups.")
+	o.flags.StringArrayVar(&o.InvolvedObjectNamespaces, "involved-object-namespaces", []string{metav1.NamespaceAll}, "List of allowed Event involved object namespaces. Defaults to all namespaces.")
 }
 
 // Parse parses the flag definitions from the argument list.

@@ -37,6 +37,7 @@ type EventCollector struct {
 
 	lock              sync.Mutex
 	informerFactories []informers.SharedInformerFactory
+	filter            eventFilter
 }
 
 // NewEventCollector returns a prometheus.Collector collecting metrics about
@@ -57,6 +58,10 @@ func NewEventCollector(kubeClient kubernetes.Interface, opts *options.Options) *
 
 		lock:              sync.Mutex{},
 		informerFactories: factories,
+		filter: eventFilter{
+			creationTimestamp: time.Now(),
+			apiGroups:         opts.InvolvedObjectAPIGroups,
+		},
 	}
 
 	collector.initInformers()
@@ -100,26 +105,20 @@ func (collector *EventCollector) initInformers() {
 	}
 }
 
-func (collector *EventCollector) eventsTotalHandler() cache.ResourceEventHandlerFuncs {
-	startRunning := time.Now()
-	return cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
-			ev := obj.(*v1.Event)
-			// Count only Events that were freshly emitted and not reconciled
-			// during the start of the informer.
-			if emittedEvent(ev, startRunning) {
+func (collector *EventCollector) eventsTotalHandler() cache.ResourceEventHandler {
+	return cache.FilteringResourceEventHandler{
+		FilterFunc: collector.filter.filter,
+		Handler: &cache.ResourceEventHandlerFuncs{
+			AddFunc: func(obj interface{}) {
+				ev := obj.(*v1.Event)
 				collector.increaseEventsTotal(ev, 1)
-			}
-		},
-		UpdateFunc: func(oldObj, newObj interface{}) {
-			oldEv := oldObj.(*v1.Event)
-			newEv := newObj.(*v1.Event)
-			// Count only Events that were freshly emitted and not reconciled
-			// during the start of the informer.
-			if emittedEvent(newEv, startRunning) {
+			},
+			UpdateFunc: func(oldObj, newObj interface{}) {
+				oldEv := oldObj.(*v1.Event)
+				newEv := newObj.(*v1.Event)
 				nbNew := updatedEventNb(oldEv, newEv)
 				collector.increaseEventsTotal(newEv, float64(nbNew))
-			}
+			},
 		},
 	}
 }
@@ -133,34 +132,6 @@ func (collector *EventCollector) increaseEventsTotal(event *v1.Event, nbNew floa
 		"reason":                    event.Reason,
 	}).Add(nbNew)
 	collector.lock.Unlock()
-}
-
-func emittedEvent(ev *v1.Event, t time.Time) bool {
-	// Truncate timestamps to unify MicroTime and Time.
-	latest := getEventLatestTimestamp(ev).Truncate(time.Second)
-	t = t.Truncate(time.Second)
-	return !latest.Before(t)
-}
-
-func getEventLatestTimestamp(ev *v1.Event) time.Time {
-	eventTimes := []time.Time{
-		ev.FirstTimestamp.Time,
-		ev.LastTimestamp.Time,
-		ev.EventTime.Time,
-	}
-
-	if ev.Series != nil {
-		eventTimes = append(eventTimes, ev.Series.LastObservedTime.Time)
-	}
-
-	latest := ev.CreationTimestamp.Time
-	for _, eventTime := range eventTimes {
-		if eventTime.After(latest) {
-			latest = eventTime
-		}
-	}
-
-	return latest
 }
 
 func updatedEventNb(oldEv, newEv *v1.Event) int32 {
