@@ -24,7 +24,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func TestEmittedEvent(t *testing.T) {
+func TestReconciledEvent(t *testing.T) {
 	now := time.Date(1970, time.January, 1, 0, 0, 0, 0, time.UTC)
 	older := now.Add(-time.Minute)
 	newer := now.Add(time.Minute)
@@ -39,31 +39,31 @@ func TestEmittedEvent(t *testing.T) {
 			desc:     "Older",
 			time:     now,
 			event:    &v1.Event{EventTime: metav1.NewMicroTime(older)},
-			expected: false,
+			expected: true,
 		},
 		{
 			desc:     "Equal",
 			time:     now,
 			event:    &v1.Event{EventTime: metav1.NewMicroTime(now)},
-			expected: true,
+			expected: false,
 		},
 		{
 			desc:     "Newer",
 			time:     now,
 			event:    &v1.Event{EventTime: metav1.NewMicroTime(newer)},
-			expected: true,
+			expected: false,
 		},
 		{
 			desc:     "TruncateTime",
 			time:     now.Add(100 * time.Millisecond),
 			event:    &v1.Event{EventTime: metav1.NewMicroTime(now)},
-			expected: true,
+			expected: false,
 		},
 		{
 			desc:     "TruncateEvent",
 			time:     now.Add(200 * time.Millisecond),
 			event:    &v1.Event{EventTime: metav1.NewMicroTime(now.Add(100 * time.Millisecond))},
-			expected: true,
+			expected: false,
 		},
 	}
 
@@ -71,7 +71,7 @@ func TestEmittedEvent(t *testing.T) {
 		tc := tc
 		t.Run(tc.desc, func(t *testing.T) {
 			t.Parallel()
-			got := emittedEvent(tc.event, tc.time)
+			got := reconciledEvent(tc.event, tc.time)
 			if got != tc.expected {
 				t.Fatalf("expected %t, got %t", tc.expected, got)
 			}
@@ -115,7 +115,7 @@ func TestGetEventLatestTimestamp(t *testing.T) {
 			expected:   newer,
 		},
 		{
-			desc:       "creationTimestamp",
+			desc:       "LastObservedTime",
 			tweakEvent: func(ev *v1.Event) { ev.Series.LastObservedTime = metav1.NewMicroTime(newer) },
 			expected:   newer,
 		},
@@ -138,6 +138,43 @@ func TestGetEventLatestTimestamp(t *testing.T) {
 			got := getEventLatestTimestamp(ev)
 			if got != tc.expected {
 				t.Fatalf("expected %s as latest timestamp", tc.expected)
+			}
+		})
+	}
+}
+
+func TestIncludedObjectAPIGroup(t *testing.T) {
+	ev := &v1.Event{InvolvedObject: v1.ObjectReference{APIVersion: "v1"}}
+
+	testCases := []struct {
+		desc   string
+		groups []string
+		expect bool
+	}{
+		{
+			desc:   "Included",
+			groups: []string{"v1", "apps/v1"},
+			expect: true,
+		},
+		{
+			desc:   "Excluded",
+			groups: []string{"apps/v1", "coordination.k8s.io/v1"},
+			expect: false,
+		},
+		{
+			desc:   "IncludeAll",
+			groups: []string{""},
+			expect: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+			got := includedObjectAPIGroup(ev, tc.groups)
+			if got != tc.expect {
+				t.Fatalf("expected %t, got %t", tc.expect, got)
 			}
 		})
 	}
