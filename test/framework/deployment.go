@@ -21,24 +21,12 @@ import (
 	"io/ioutil"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/ghodss/yaml"
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
 )
-
-// GetDeployment gets the given deployment.
-func (f *Framework) GetDeployment(ns, name string) (*appsv1.Deployment, error) {
-	deployment, err := f.KubeClient.AppsV1().Deployments(ns).Get(context.TODO(), name, metav1.GetOptions{})
-	if err != nil {
-		return nil, errors.Wrapf(err, "get deployment %s", name)
-	}
-	return deployment, nil
-}
 
 // CreateDeployment creates the given deployment.
 func (f *Framework) CreateDeployment(t *testing.T, deployment *appsv1.Deployment, ns string) *appsv1.Deployment {
@@ -79,24 +67,5 @@ func (f *Framework) DeleteDeployment(ns, name string) error {
 	if err != nil {
 		return errors.Wrapf(err, "delete deployment %s", name)
 	}
-	return nil
-}
-
-// WaitUntilDeploymentReady waits until given deployment is ready.
-func (f *Framework) WaitUntilDeploymentReady(ns, name string) error {
-	err := wait.Poll(time.Second, f.DefaultTimeout, func() (bool, error) {
-		deployment, err := f.GetDeployment(ns, name)
-		if err != nil {
-			if apierrors.IsNotFound(err) {
-				return false, nil
-			}
-			return false, err
-		}
-		return deployment.Status.ReadyReplicas == *deployment.Spec.Replicas, nil
-	})
-	if err != nil {
-		return errors.Wrapf(err, "deployment %s pods are not ready", name)
-	}
-
 	return nil
 }

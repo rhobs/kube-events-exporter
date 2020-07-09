@@ -118,18 +118,37 @@ func (f *Framework) CreateKubeEventsExporter(t *testing.T) *KubeEventsExporter {
 	}
 	deployment = f.CreateDeployment(t, deployment, exporterNamespace)
 
-	err = f.WaitUntilDeploymentReady(deployment.Namespace, deployment.Name)
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	exporter := &KubeEventsExporter{
 		Deployment:        deployment,
 		EventServerURL:    eventServerURL,
 		ExporterServerURL: exporterServerURL,
 	}
 
+	err = f.waitUntilExporterReady(exporter)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	return exporter
+}
+
+func (f *Framework) waitUntilExporterReady(exporter *KubeEventsExporter) error {
+	err := wait.Poll(time.Second, f.DefaultTimeout, func() (bool, error) {
+		resp, err := http.Get(fmt.Sprintf("%s/healthz", exporter.EventServerURL))
+		if err != nil {
+			return false, err
+		}
+		err = resp.Body.Close()
+		if err != nil {
+			return false, err
+		}
+
+		return resp.StatusCode == http.StatusOK, nil
+	})
+	if err != nil {
+		return errors.Wrapf(err, "kube-events-exporter not ready")
+	}
+	return nil
 }
 
 // GetEventMetricFamilies gets metrics from the event server metrics endpoint

@@ -19,7 +19,6 @@ package e2e
 import (
 	"flag"
 	"log"
-	"net/http"
 	"os"
 	"testing"
 
@@ -50,26 +49,4 @@ func TestMain(m *testing.M) {
 	}
 
 	os.Exit(m.Run())
-}
-
-func TestKubeEventsExporterRunning(t *testing.T) {
-	exporter := framework.CreateKubeEventsExporter(t)
-
-	resp, err := http.Get(exporter.EventServerURL)
-	if err != nil {
-		t.Fatalf("event server not running %v", err)
-	}
-	err = resp.Body.Close()
-	if err != nil {
-		t.Log(err)
-	}
-
-	resp, err = http.Get(exporter.ExporterServerURL)
-	if err != nil {
-		t.Fatalf("exporter server not running %v", err)
-	}
-	err = resp.Body.Close()
-	if err != nil {
-		t.Log(err)
-	}
 }
