@@ -42,6 +42,15 @@ func (f *Framework) CreateEvent(t *testing.T, event *v1.Event, ns string) *v1.Ev
 	return event
 }
 
+// UpdateEvent updates the given Event.
+func (f *Framework) UpdateEvent(event *v1.Event, ns string) (*v1.Event, error) {
+	event, err := f.KubeClient.CoreV1().Events(ns).Update(context.TODO(), event, metav1.UpdateOptions{})
+	if err != nil {
+		return nil, errors.Wrapf(err, "update event %s", event.Name)
+	}
+	return event, nil
+}
+
 // DeleteEvent deletes the given Event.
 func (f *Framework) DeleteEvent(ns, name string) error {
 	err := f.KubeClient.CoreV1().Events(ns).Delete(context.TODO(), name, metav1.DeleteOptions{})

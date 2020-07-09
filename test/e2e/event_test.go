@@ -57,6 +57,46 @@ func TestEventCreation(t *testing.T) {
 	}
 }
 
+func TestEventUpdate(t *testing.T) {
+	exporter := framework.CreateKubeEventsExporter(t)
+
+	event := &v1.Event{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test",
+		},
+		InvolvedObject: v1.ObjectReference{
+			Kind:      "Pod",
+			Namespace: "default",
+		},
+		Count:  1,
+		Reason: "test",
+		Type:   v1.EventTypeNormal,
+	}
+	event = framework.CreateEvent(t, event, event.InvolvedObject.Namespace)
+
+	event.Count++
+	event.LastTimestamp = metav1.Now()
+	event, err := framework.UpdateEvent(event, event.InvolvedObject.Namespace)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expectedMetric := &dto.Metric{
+		Label: []*dto.LabelPair{
+			{Name: stringPtr("involved_object_kind"), Value: &event.InvolvedObject.Kind},
+			{Name: stringPtr("involved_object_namespace"), Value: &event.InvolvedObject.Namespace},
+			{Name: stringPtr("reason"), Value: &event.Reason},
+			{Name: stringPtr("type"), Value: &event.Type},
+		},
+		Counter: &dto.Counter{Value: float64Ptr(2)},
+	}
+
+	err = framework.PollMetric(exporter.GetEventMetricFamilies, "kube_events_total", expectedMetric)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 func stringPtr(s string) *string {
 	return &s
 }
