@@ -179,3 +179,54 @@ func TestIncludedObjectAPIGroup(t *testing.T) {
 		})
 	}
 }
+
+func TestShouldMaskReason(t *testing.T) {
+	testCases := []struct {
+		desc        string
+		controllers []string
+		event       *v1.Event
+		expect      bool
+	}{
+		{
+			desc:        "IncludedSource",
+			controllers: []string{"default-scheduler", "kubelet"},
+			event:       &v1.Event{Source: v1.EventSource{Component: "kubelet"}},
+			expect:      false,
+		},
+		{
+			desc:        "ExcludedSource",
+			controllers: []string{"kubelet"},
+			event:       &v1.Event{Source: v1.EventSource{Component: "default-scheduler"}},
+			expect:      true,
+		},
+		{
+			desc:        "IncludedController",
+			controllers: []string{"kubelet", "default-scheduler"},
+			event:       &v1.Event{ReportingController: "kubelet"},
+			expect:      false,
+		},
+		{
+			desc:        "ExcludedController",
+			controllers: []string{"kubelet"},
+			event:       &v1.Event{ReportingController: "default-scheduler"},
+			expect:      true,
+		},
+		{
+			desc:        "IncludeAll",
+			controllers: []string{""},
+			event:       &v1.Event{Source: v1.EventSource{Component: "kubelet"}},
+			expect:      false,
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+			got := shouldMaskReason(tc.controllers, tc.event)
+			if got != tc.expect {
+				t.Fatalf("expected %t, got %t", tc.expect, got)
+			}
+		})
+	}
+}
