@@ -27,12 +27,16 @@ import (
 )
 
 const (
-	// EventTypesAll is the argument to specify to allow all Event types.
-	EventTypesAll = ""
+	// EventTypeAll is the argument to specify to allow all Event types.
+	EventTypeAll = ""
 
-	// APIGroupsAll is the argument to specify to allow objects from all API
+	// APIGroupAll is the argument to specify to allow objects from all API
 	// groups.
-	APIGroupsAll = ""
+	APIGroupAll = ""
+
+	// ControllerReportingReasonAll is the argument to specify to allow Event
+	// reasons reported by all controllers.
+	ControllerReportingReasonAll = ""
 )
 
 // Options are the configurable parameters for kube-events-exporter.
@@ -45,9 +49,10 @@ type Options struct {
 	ExporterPort int
 	Version      bool
 
-	EventTypes               []string
-	InvolvedObjectAPIGroups  []string
-	InvolvedObjectNamespaces []string
+	ControllersReportingReasons []string
+	EventTypes                  []string
+	InvolvedObjectAPIGroups     []string
+	InvolvedObjectNamespaces    []string
 
 	flags *pflag.FlagSet
 }
@@ -79,8 +84,9 @@ func (o *Options) AddFlags() {
 	o.flags.IntVar(&o.ExporterPort, "exporter-port", 8081, "Port to expose kube-events-exporter own metrics on.")
 	o.flags.BoolVar(&o.Version, "version", false, "kube-events-exporter version information")
 
-	o.flags.StringArrayVar(&o.EventTypes, "event-types", []string{EventTypesAll}, "List of allowed Event types. Defaults to all types.")
-	o.flags.StringArrayVar(&o.InvolvedObjectAPIGroups, "involved-object-api-groups", []string{APIGroupsAll}, "List of allowed Event involved object API groups. Defaults to all API groups.")
+	o.flags.StringArrayVar(&o.ControllersReportingReasons, "controllers-reporting-reasons", []string{ControllerReportingReasonAll}, "List of controllers allowed to report Event reasons. Filtered-out reasons will be replaced by Unknown. Defaults to all controllers.")
+	o.flags.StringArrayVar(&o.EventTypes, "event-types", []string{EventTypeAll}, "List of allowed Event types. Defaults to all types.")
+	o.flags.StringArrayVar(&o.InvolvedObjectAPIGroups, "involved-object-api-groups", []string{APIGroupAll}, "List of allowed Event involved object API groups. Defaults to all API groups.")
 	o.flags.StringArrayVar(&o.InvolvedObjectNamespaces, "involved-object-namespaces", []string{metav1.NamespaceAll}, "List of allowed Event involved object namespaces. Defaults to all namespaces.")
 }
 
