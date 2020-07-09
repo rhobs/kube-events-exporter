@@ -21,7 +21,9 @@ import (
 	"net/http"
 	"net/url"
 	"path"
+	"reflect"
 	"testing"
+	"time"
 
 	"github.com/pkg/errors"
 	dto "github.com/prometheus/client_model/go"
@@ -30,6 +32,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 const (
@@ -165,4 +168,33 @@ func getMetricFamilies(serverURL string) (map[string]*dto.MetricFamily, error) {
 	}
 
 	return families, nil
+}
+
+type metricFamiliesGetter = func() (map[string]*dto.MetricFamily, error)
+
+// PollMetric tries to find the given metric in the metric families returned by
+// the provided getter until the framework default timeout.
+func (f *Framework) PollMetric(getter metricFamiliesGetter, name string, expectedMetric *dto.Metric) error {
+	err := wait.Poll(time.Second, f.DefaultTimeout, func() (bool, error) {
+		families, err := getter()
+		if err != nil {
+			return false, err
+		}
+
+		eventsTotal, found := families[name]
+		if !found {
+			return false, nil
+		}
+
+		for _, metric := range eventsTotal.Metric {
+			if reflect.DeepEqual(metric, expectedMetric) {
+				return true, nil
+			}
+		}
+		return false, nil
+	})
+	if err != nil {
+		return errors.Errorf("%s expected metric not found", name)
+	}
+	return nil
 }
