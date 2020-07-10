@@ -105,18 +105,18 @@ func (collector *EventCollector) eventsTotalHandler() cache.ResourceEventHandler
 	return cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			ev := obj.(*v1.Event)
-			// Count only Events that were not reconciled during the start of
-			// the informer.
-			if !reconciledEvent(startRunning, ev) {
+			// Count only Events that were freshly emitted and not reconciled
+			// during the start of the informer.
+			if emittedEvent(ev, startRunning) {
 				collector.increaseEventsTotal(ev, 1)
 			}
 		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
 			oldEv := oldObj.(*v1.Event)
 			newEv := newObj.(*v1.Event)
-			// Count only Events that were not reconciled during the start of
-			// the informer.
-			if !reconciledEvent(startRunning, newEv) {
+			// Count only Events that were freshly emitted and not reconciled
+			// during the start of the informer.
+			if emittedEvent(newEv, startRunning) {
 				nbNew := updatedEventNb(oldEv, newEv)
 				collector.increaseEventsTotal(newEv, float64(nbNew))
 			}
@@ -135,11 +135,11 @@ func (collector *EventCollector) increaseEventsTotal(event *v1.Event, nbNew floa
 	collector.lock.Unlock()
 }
 
-func reconciledEvent(t time.Time, ev *v1.Event) bool {
+func emittedEvent(ev *v1.Event, t time.Time) bool {
 	// Truncate timestamps to unify MicroTime and Time.
 	latest := getEventLatestTimestamp(ev).Truncate(time.Second)
 	t = t.Truncate(time.Second)
-	return t.After(latest)
+	return !latest.Before(t)
 }
 
 func getEventLatestTimestamp(ev *v1.Event) time.Time {
