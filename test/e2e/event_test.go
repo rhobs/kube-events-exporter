@@ -36,7 +36,7 @@ func TestEventCreation(t *testing.T) {
 			Namespace: "default",
 		},
 		Count:  1,
-		Reason: "test",
+		Reason: "test-creation",
 		Type:   v1.EventTypeNormal,
 	}
 	event = framework.CreateEvent(t, event, event.InvolvedObject.Namespace)
@@ -69,7 +69,7 @@ func TestEventUpdate(t *testing.T) {
 			Namespace: "default",
 		},
 		Count:  1,
-		Reason: "test",
+		Reason: "test-update",
 		Type:   v1.EventTypeNormal,
 	}
 	event = framework.CreateEvent(t, event, event.InvolvedObject.Namespace)
@@ -107,7 +107,7 @@ func TestRecordEventRecorderCreate(t *testing.T) {
 		Name:      "foo",
 	}
 	eventType := v1.EventTypeNormal
-	reason := "test"
+	reason := "test-recorder-create"
 
 	recorder.Eventf(involvedObject, eventType, reason, "")
 
@@ -137,7 +137,7 @@ func TestRecordEventRecorderUpdate(t *testing.T) {
 		Name:      "foo",
 	}
 	eventType := v1.EventTypeNormal
-	reason := "test"
+	reason := "test-recorder-update"
 
 	recorder.Eventf(involvedObject, eventType, reason, "")
 	recorder.Eventf(involvedObject, eventType, reason, "")
@@ -150,6 +150,38 @@ func TestRecordEventRecorderUpdate(t *testing.T) {
 			{Name: stringPtr("type"), Value: &eventType},
 		},
 		Counter: &dto.Counter{Value: float64Ptr(2)},
+	}
+
+	err := framework.PollMetric(exporter.GetEventMetricFamilies, "kube_events_total", expectedMetric)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestEventsEventRecorderCreate(t *testing.T) {
+	exporter := framework.CreateKubeEventsExporter(t)
+
+	stopCh := make(chan struct{})
+	recorder := framework.NewEventsEventRecorder(stopCh)
+
+	involvedObject := &v1.ObjectReference{
+		Kind:      "Pod",
+		Namespace: "default",
+		Name:      "foo",
+	}
+	eventType := v1.EventTypeNormal
+	reason := "test-recorder-create"
+
+	recorder.Eventf(involvedObject, nil, eventType, reason, "action", "")
+
+	expectedMetric := &dto.Metric{
+		Label: []*dto.LabelPair{
+			{Name: stringPtr("involved_object_kind"), Value: &involvedObject.Kind},
+			{Name: stringPtr("involved_object_namespace"), Value: &involvedObject.Namespace},
+			{Name: stringPtr("reason"), Value: &reason},
+			{Name: stringPtr("type"), Value: &eventType},
+		},
+		Counter: &dto.Counter{Value: float64Ptr(1)},
 	}
 
 	err := framework.PollMetric(exporter.GetEventMetricFamilies, "kube_events_total", expectedMetric)

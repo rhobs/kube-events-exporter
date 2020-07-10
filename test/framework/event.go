@@ -25,6 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/tools/events"
 	"k8s.io/client-go/tools/record"
 )
 
@@ -72,4 +73,12 @@ func (f *Framework) NewRecordEventRecorder() record.EventRecorder {
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: f.KubeClient.CoreV1().Events("")})
 	return eventBroadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: agentName})
+}
+
+// NewEventsEventRecorder constructs an events.EventRecorder.
+func (f *Framework) NewEventsEventRecorder(stopCh <-chan struct{}) events.EventRecorder {
+	eventSink := &events.EventSinkImpl{Interface: f.KubeClient.EventsV1beta1().Events("")}
+	eventBroadcaster := events.NewBroadcaster(eventSink)
+	eventBroadcaster.StartRecordingToSink(stopCh)
+	return eventBroadcaster.NewRecorder(scheme.Scheme, agentName)
 }
