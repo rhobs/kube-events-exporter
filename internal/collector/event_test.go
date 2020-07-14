@@ -24,85 +24,120 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func TestBeforeLatestEvent(t *testing.T) {
+func TestEmittedEvent(t *testing.T) {
 	now := time.Date(1970, time.January, 1, 0, 0, 0, 0, time.UTC)
 	older := now.Add(-time.Minute)
 	newer := now.Add(time.Minute)
 
-	newerSimpleEvent := &v1.Event{}
-	newerSimpleEvent.CreationTimestamp = metav1.NewTime(newer)
-
-	olderSimpleEvent := &v1.Event{}
-	olderSimpleEvent.CreationTimestamp = metav1.NewTime(older)
-
-	scenarios := []struct {
-		Desc     string
-		Event    *v1.Event
-		Expected bool
+	testCases := []struct {
+		desc     string
+		time     time.Time
+		event    *v1.Event
+		expected bool
 	}{
 		{
-			Desc:     "api:newer",
-			Event:    newerSimpleEvent,
-			Expected: true,
+			desc:     "Older",
+			time:     now,
+			event:    &v1.Event{EventTime: metav1.NewMicroTime(older)},
+			expected: false,
 		},
 		{
-			Desc:     "api:older",
-			Event:    olderSimpleEvent,
-			Expected: false,
+			desc:     "Equal",
+			time:     now,
+			event:    &v1.Event{EventTime: metav1.NewMicroTime(now)},
+			expected: true,
 		},
 		{
-			Desc: "core.EventRecorder:newer",
-			Event: &v1.Event{
-				FirstTimestamp: metav1.NewTime(older),
-				LastTimestamp:  metav1.NewTime(newer),
-			},
-			Expected: true,
+			desc:     "Newer",
+			time:     now,
+			event:    &v1.Event{EventTime: metav1.NewMicroTime(newer)},
+			expected: true,
 		},
 		{
-			Desc: "core.EventRecorder:older",
-			Event: &v1.Event{
-				FirstTimestamp: metav1.NewTime(older),
-				LastTimestamp:  metav1.NewTime(older),
-			},
-			Expected: false,
+			desc:     "TruncateTime",
+			time:     now.Add(100 * time.Millisecond),
+			event:    &v1.Event{EventTime: metav1.NewMicroTime(now)},
+			expected: true,
 		},
 		{
-			Desc: "events.EventRecorder:newer",
-			Event: &v1.Event{
-				EventTime: metav1.NewMicroTime(newer),
-			},
-			Expected: true,
-		},
-		{
-			Desc: "events.EventRecorder:older",
-			Event: &v1.Event{
-				EventTime: metav1.NewMicroTime(older),
-			},
-			Expected: false,
-		},
-		{
-			Desc: "events.EventRecorder:newer_serie",
-			Event: &v1.Event{
-				Series: &v1.EventSeries{LastObservedTime: metav1.NewMicroTime(newer)},
-			},
-			Expected: true,
-		},
-		{
-			Desc: "events.EventRecorder:older_serie",
-			Event: &v1.Event{
-				Series: &v1.EventSeries{LastObservedTime: metav1.NewMicroTime(older)},
-			},
-			Expected: false,
+			desc:     "TruncateEvent",
+			time:     now.Add(200 * time.Millisecond),
+			event:    &v1.Event{EventTime: metav1.NewMicroTime(now.Add(100 * time.Millisecond))},
+			expected: true,
 		},
 	}
 
-	for _, scenario := range scenarios {
-		scenario := scenario
-		t.Run(scenario.Desc, func(t *testing.T) {
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.desc, func(t *testing.T) {
 			t.Parallel()
-			result := beforeLatestEvent(now, scenario.Event)
-			if result != scenario.Expected {
-				t.Fatalf("expected %t", scenario.Expected)
+			got := emittedEvent(tc.event, tc.time)
+			if got != tc.expected {
+				t.Fatalf("expected %t, got %t", tc.expected, got)
+			}
+		})
+	}
+}
+
+func TestGetEventLatestTimestamp(t *testing.T) {
+	now := time.Date(1970, time.January, 1, 0, 0, 0, 0, time.UTC)
+	older := now.Add(-time.Minute)
+	newer := now.Add(time.Minute)
+
+	testCases := []struct {
+		desc       string
+		tweakEvent func(*v1.Event)
+		expected   time.Time
+	}{
+		{
+			desc:       "OlderEvent",
+			tweakEvent: func(*v1.Event) {},
+			expected:   older,
+		},
+		{
+			desc:       "CreationTimestamp",
+			tweakEvent: func(ev *v1.Event) { ev.CreationTimestamp = metav1.NewTime(newer) },
+			expected:   newer,
+		},
+		{
+			desc:       "FirstTimestamp",
+			tweakEvent: func(ev *v1.Event) { ev.FirstTimestamp = metav1.NewTime(newer) },
+			expected:   newer,
+		},
+		{
+			desc:       "LastTimestamp",
+			tweakEvent: func(ev *v1.Event) { ev.LastTimestamp = metav1.NewTime(newer) },
+			expected:   newer,
+		},
+		{
+			desc:       "EventTime",
+			tweakEvent: func(ev *v1.Event) { ev.EventTime = metav1.NewMicroTime(newer) },
+			expected:   newer,
+		},
+		{
+			desc:       "creationTimestamp",
+			tweakEvent: func(ev *v1.Event) { ev.Series.LastObservedTime = metav1.NewMicroTime(newer) },
+			expected:   newer,
+		},
+	}
+
+	olderEvent := &v1.Event{
+		FirstTimestamp: metav1.NewTime(older),
+		LastTimestamp:  metav1.NewTime(older),
+		EventTime:      metav1.NewMicroTime(older),
+		Series:         &v1.EventSeries{LastObservedTime: metav1.NewMicroTime(older)},
+	}
+	olderEvent.CreationTimestamp = metav1.NewTime(older)
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+			ev := olderEvent.DeepCopy()
+			tc.tweakEvent(ev)
+			got := getEventLatestTimestamp(ev)
+			if got != tc.expected {
+				t.Fatalf("expected %s as latest timestamp", tc.expected)
 			}
 		})
 	}
