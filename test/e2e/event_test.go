@@ -116,6 +116,9 @@ func TestUpdateExistingEvent(t *testing.T) {
 		Type:   v1.EventTypeNormal,
 	}
 	event = framework.CreateEvent(t, event, event.InvolvedObject.Namespace)
+	// The exporter reconciles Events created during the same second as itself.
+	// Thus, to ensure that this Event is not reconciled, we sleep one second.
+	time.Sleep(time.Second)
 
 	exporter := framework.CreateKubeEventsExporter(t)
 
@@ -156,7 +159,7 @@ func TestNotReconciling(t *testing.T) {
 		Type:   v1.EventTypeNormal,
 	}
 	event = framework.CreateEvent(t, event, event.InvolvedObject.Namespace)
-	// The exporter reconcile Events created during the same second as itself.
+	// The exporter reconciles Events created during the same second as itself.
 	// Thus, to ensure that this Event is not reconciled, we sleep one second.
 	time.Sleep(time.Second)
 
