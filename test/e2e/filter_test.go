@@ -54,3 +54,35 @@ func TestNamespaceFilter(t *testing.T) {
 		})
 	}
 }
+
+func TestEventTypeFilter(t *testing.T) {
+	eventType := framework.NewBasicEvent().Type
+
+	testCases := []struct {
+		name      string
+		eventType string
+		assert    framework.AssertEventsTotalFunc
+	}{
+		{
+			name:      "Included",
+			eventType: eventType,
+			assert:    f.AssertEventsTotalPresent,
+		},
+		{
+			name:      "Excluded",
+			eventType: fmt.Sprintf("not-%s", eventType),
+			assert:    f.AssertEventsTotalAbsent,
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			f := *f
+			f.ExporterArgs = []string{fmt.Sprintf("--event-types=%s", tc.eventType)}
+			exporter := f.CreateKubeEventsExporter(t)
+			event := f.CreateBasicEvent(t)
+			tc.assert(t, exporter, event, 1)
+		})
+	}
+}
