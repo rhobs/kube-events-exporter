@@ -30,6 +30,7 @@ type Framework struct {
 	KubeClient     kubernetes.Interface
 	DefaultTimeout time.Duration
 	ExporterImage  string
+	ExporterArgs   []string
 }
 
 // NewFramework returns a new framework.

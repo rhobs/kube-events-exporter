@@ -115,6 +115,10 @@ func (f *Framework) CreateKubeEventsExporter(t *testing.T) *KubeEventsExporter {
 		// Override kube-events-exporter image with the one specified.
 		deployment.Spec.Template.Spec.Containers[0].Image = f.ExporterImage
 	}
+	if len(f.ExporterArgs) != 0 {
+		// Override kube-events-exporter arguments with the one specified.
+		deployment.Spec.Template.Spec.Containers[0].Args = f.ExporterArgs
+	}
 	f.CreateDeployment(t, deployment, exporterNamespace)
 
 	exporter := &KubeEventsExporter{
