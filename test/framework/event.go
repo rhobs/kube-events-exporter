@@ -50,8 +50,17 @@ func (f *Framework) CreateEvent(t *testing.T, event *v1.Event, ns string) *v1.Ev
 	return event
 }
 
+// CreateBasicEvent creates a basic Event.
+func (f *Framework) CreateBasicEvent(t *testing.T) *v1.Event {
+	event := NewBasicEvent()
+	return f.CreateEvent(t, event, event.InvolvedObject.Namespace)
+}
+
 // UpdateEvent updates the given Event.
 func (f *Framework) UpdateEvent(event *v1.Event, ns string) (*v1.Event, error) {
+	event.Count++
+	event.LastTimestamp = metav1.Now()
+
 	event, err := f.KubeClient.CoreV1().Events(ns).Update(context.TODO(), event, metav1.UpdateOptions{})
 	if err != nil {
 		return nil, errors.Wrapf(err, "update event %s", event.Name)
@@ -66,6 +75,23 @@ func (f *Framework) DeleteEvent(ns, name string) error {
 		return errors.Wrapf(err, "delete event %s", name)
 	}
 	return nil
+}
+
+// NewBasicEvent constructs a basic Event for test purposes.
+func NewBasicEvent() *v1.Event {
+	return &v1.Event{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test",
+		},
+		InvolvedObject: v1.ObjectReference{
+			Kind:      "Pod",
+			Namespace: "default",
+		},
+		Count:  1,
+		Reason: "test",
+		Type:   v1.EventTypeNormal,
+		Action: "action",
+	}
 }
 
 // NewRecordEventRecorder constructs a record.EventRecorder.

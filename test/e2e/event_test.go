@@ -20,264 +20,84 @@ import (
 	"testing"
 	"time"
 
-	dto "github.com/prometheus/client_model/go"
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-)
-
-const (
-	eventsTotal = "kube_events_total"
+	"github.com/rhobs/kube-events-exporter/test/framework"
 )
 
 func TestEventCreation(t *testing.T) {
-	exporter := framework.CreateKubeEventsExporter(t)
+	exporter := f.CreateKubeEventsExporter(t)
+	event := f.CreateBasicEvent(t)
 
-	event := &v1.Event{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "test",
-		},
-		InvolvedObject: v1.ObjectReference{
-			Kind:      "Pod",
-			Namespace: "default",
-		},
-		Count:  1,
-		Reason: "test-creation",
-		Type:   v1.EventTypeNormal,
-	}
-	event = framework.CreateEvent(t, event, event.InvolvedObject.Namespace)
-
-	expectedMetric := &dto.Metric{
-		Label: []*dto.LabelPair{
-			{Name: stringPtr("involved_object_kind"), Value: &event.InvolvedObject.Kind},
-			{Name: stringPtr("involved_object_namespace"), Value: &event.InvolvedObject.Namespace},
-			{Name: stringPtr("reason"), Value: &event.Reason},
-			{Name: stringPtr("type"), Value: &event.Type},
-		},
-		Counter: &dto.Counter{Value: float64Ptr(1)},
-	}
-
-	err := framework.PollMetric(exporter.GetEventMetricFamilies, eventsTotal, expectedMetric)
-	if err != nil {
-		t.Fatal(err)
-	}
+	f.AssertEventsTotalPresent(t, exporter, event, 1)
 }
 
 func TestEventUpdate(t *testing.T) {
-	exporter := framework.CreateKubeEventsExporter(t)
+	exporter := f.CreateKubeEventsExporter(t)
+	event := f.CreateBasicEvent(t)
 
-	event := &v1.Event{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "test",
-		},
-		InvolvedObject: v1.ObjectReference{
-			Kind:      "Pod",
-			Namespace: "default",
-		},
-		Count:  1,
-		Reason: "test-update",
-		Type:   v1.EventTypeNormal,
-	}
-	event = framework.CreateEvent(t, event, event.InvolvedObject.Namespace)
-
-	event.Count++
-	event.LastTimestamp = metav1.Now()
-	event, err := framework.UpdateEvent(event, event.InvolvedObject.Namespace)
+	event, err := f.UpdateEvent(event, event.InvolvedObject.Namespace)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	expectedMetric := &dto.Metric{
-		Label: []*dto.LabelPair{
-			{Name: stringPtr("involved_object_kind"), Value: &event.InvolvedObject.Kind},
-			{Name: stringPtr("involved_object_namespace"), Value: &event.InvolvedObject.Namespace},
-			{Name: stringPtr("reason"), Value: &event.Reason},
-			{Name: stringPtr("type"), Value: &event.Type},
-		},
-		Counter: &dto.Counter{Value: float64Ptr(2)},
-	}
-
-	err = framework.PollMetric(exporter.GetEventMetricFamilies, eventsTotal, expectedMetric)
-	if err != nil {
-		t.Fatal(err)
-	}
+	f.AssertEventsTotalPresent(t, exporter, event, 2)
 }
 
 func TestUpdateExistingEvent(t *testing.T) {
-	event := &v1.Event{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "test",
-		},
-		InvolvedObject: v1.ObjectReference{
-			Kind:      "Pod",
-			Namespace: "default",
-		},
-		Count:  1,
-		Reason: "test-update-existing",
-		Type:   v1.EventTypeNormal,
-	}
-	event = framework.CreateEvent(t, event, event.InvolvedObject.Namespace)
-	// The exporter reconciles Events created during the same second as itself.
+	event := f.CreateBasicEvent(t)
+	// The exporter reconcile Events created during the same second as itself.
 	// Thus, to ensure that this Event is not reconciled, we sleep one second.
 	time.Sleep(time.Second)
 
-	exporter := framework.CreateKubeEventsExporter(t)
+	exporter := f.CreateKubeEventsExporter(t)
 
-	event.Count++
-	event.LastTimestamp = metav1.Now()
-	event, err := framework.UpdateEvent(event, event.Namespace)
+	event, err := f.UpdateEvent(event, event.Namespace)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	expectedMetric := &dto.Metric{
-		Label: []*dto.LabelPair{
-			{Name: stringPtr("involved_object_kind"), Value: &event.InvolvedObject.Kind},
-			{Name: stringPtr("involved_object_namespace"), Value: &event.InvolvedObject.Namespace},
-			{Name: stringPtr("reason"), Value: &event.Reason},
-			{Name: stringPtr("type"), Value: &event.Type},
-		},
-		Counter: &dto.Counter{Value: float64Ptr(1)},
-	}
-
-	err = framework.PollMetric(exporter.GetEventMetricFamilies, eventsTotal, expectedMetric)
-	if err != nil {
-		t.Fatal(err)
-	}
+	f.AssertEventsTotalPresent(t, exporter, event, 1)
 }
 
 func TestNotReconciling(t *testing.T) {
-	event := &v1.Event{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "test",
-		},
-		InvolvedObject: v1.ObjectReference{
-			Kind:      "Pod",
-			Namespace: "default",
-		},
-		Count:  1,
-		Reason: "test",
-		Type:   v1.EventTypeNormal,
-	}
-	event = framework.CreateEvent(t, event, event.InvolvedObject.Namespace)
-	// The exporter reconciles Events created during the same second as itself.
+	event := f.CreateBasicEvent(t)
+	// The exporter reconcile Events created during the same second as itself.
 	// Thus, to ensure that this Event is not reconciled, we sleep one second.
 	time.Sleep(time.Second)
 
-	exporter := framework.CreateKubeEventsExporter(t)
+	exporter := f.CreateKubeEventsExporter(t)
 
-	unexpectedMetric := &dto.Metric{
-		Label: []*dto.LabelPair{
-			{Name: stringPtr("involved_object_kind"), Value: &event.InvolvedObject.Kind},
-			{Name: stringPtr("involved_object_namespace"), Value: &event.InvolvedObject.Namespace},
-			{Name: stringPtr("reason"), Value: &event.Reason},
-			{Name: stringPtr("type"), Value: &event.Type},
-		},
-		Counter: &dto.Counter{Value: float64Ptr(1)},
-	}
-
-	err := framework.PollMetric(exporter.GetEventMetricFamilies, eventsTotal, unexpectedMetric)
-	if err == nil {
-		t.Fatal("kube-events-exporter should not reconcile existing Events")
-	}
+	f.AssertEventsTotalAbsent(t, exporter, event, 1)
 }
 
 func TestRecordEventRecorderCreate(t *testing.T) {
-	exporter := framework.CreateKubeEventsExporter(t)
-	recorder := framework.NewRecordEventRecorder()
+	exporter := f.CreateKubeEventsExporter(t)
+	recorder := f.NewRecordEventRecorder()
 
-	involvedObject := &v1.ObjectReference{
-		Kind:      "Pod",
-		Namespace: "default",
-		Name:      "foo",
-	}
-	eventType := v1.EventTypeNormal
-	reason := "test-recorder-create"
+	event := framework.NewBasicEvent()
+	recorder.Eventf(&event.InvolvedObject, event.Type, event.Reason, event.Message)
 
-	recorder.Eventf(involvedObject, eventType, reason, "")
-
-	expectedMetric := &dto.Metric{
-		Label: []*dto.LabelPair{
-			{Name: stringPtr("involved_object_kind"), Value: &involvedObject.Kind},
-			{Name: stringPtr("involved_object_namespace"), Value: &involvedObject.Namespace},
-			{Name: stringPtr("reason"), Value: &reason},
-			{Name: stringPtr("type"), Value: &eventType},
-		},
-		Counter: &dto.Counter{Value: float64Ptr(1)},
-	}
-
-	err := framework.PollMetric(exporter.GetEventMetricFamilies, eventsTotal, expectedMetric)
-	if err != nil {
-		t.Fatal(err)
-	}
+	f.AssertEventsTotalPresent(t, exporter, event, 1)
 }
 
 func TestRecordEventRecorderUpdate(t *testing.T) {
-	exporter := framework.CreateKubeEventsExporter(t)
-	recorder := framework.NewRecordEventRecorder()
+	exporter := f.CreateKubeEventsExporter(t)
+	recorder := f.NewRecordEventRecorder()
 
-	involvedObject := &v1.ObjectReference{
-		Kind:      "Pod",
-		Namespace: "default",
-		Name:      "foo",
-	}
-	eventType := v1.EventTypeNormal
-	reason := "test-recorder-update"
+	event := framework.NewBasicEvent()
+	recorder.Eventf(&event.InvolvedObject, event.Type, event.Reason, event.Message)
+	recorder.Eventf(&event.InvolvedObject, event.Type, event.Reason, event.Message)
 
-	recorder.Eventf(involvedObject, eventType, reason, "")
-	recorder.Eventf(involvedObject, eventType, reason, "")
-
-	expectedMetric := &dto.Metric{
-		Label: []*dto.LabelPair{
-			{Name: stringPtr("involved_object_kind"), Value: &involvedObject.Kind},
-			{Name: stringPtr("involved_object_namespace"), Value: &involvedObject.Namespace},
-			{Name: stringPtr("reason"), Value: &reason},
-			{Name: stringPtr("type"), Value: &eventType},
-		},
-		Counter: &dto.Counter{Value: float64Ptr(2)},
-	}
-
-	err := framework.PollMetric(exporter.GetEventMetricFamilies, eventsTotal, expectedMetric)
-	if err != nil {
-		t.Fatal(err)
-	}
+	f.AssertEventsTotalPresent(t, exporter, event, 2)
 }
 
 func TestEventsEventRecorderCreate(t *testing.T) {
-	exporter := framework.CreateKubeEventsExporter(t)
+	exporter := f.CreateKubeEventsExporter(t)
 
 	stopCh := make(chan struct{})
-	recorder := framework.NewEventsEventRecorder(stopCh)
+	recorder := f.NewEventsEventRecorder(stopCh)
 
-	involvedObject := &v1.ObjectReference{
-		Kind:      "Pod",
-		Namespace: "default",
-		Name:      "foo",
-	}
-	eventType := v1.EventTypeNormal
-	reason := "test-recorder-create"
+	event := framework.NewBasicEvent()
+	recorder.Eventf(&event.InvolvedObject, nil, event.Type, event.Reason, event.Action, event.Message)
 
-	recorder.Eventf(involvedObject, nil, eventType, reason, "action", "")
-
-	expectedMetric := &dto.Metric{
-		Label: []*dto.LabelPair{
-			{Name: stringPtr("involved_object_kind"), Value: &involvedObject.Kind},
-			{Name: stringPtr("involved_object_namespace"), Value: &involvedObject.Namespace},
-			{Name: stringPtr("reason"), Value: &reason},
-			{Name: stringPtr("type"), Value: &eventType},
-		},
-		Counter: &dto.Counter{Value: float64Ptr(1)},
-	}
-
-	err := framework.PollMetric(exporter.GetEventMetricFamilies, eventsTotal, expectedMetric)
-	if err != nil {
-		t.Fatal(err)
-	}
-}
-
-func stringPtr(s string) *string {
-	return &s
-}
-
-func float64Ptr(f float64) *float64 {
-	return &f
+	f.AssertEventsTotalPresent(t, exporter, event, 1)
 }

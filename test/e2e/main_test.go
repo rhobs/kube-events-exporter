@@ -22,11 +22,11 @@ import (
 	"os"
 	"testing"
 
-	exporterFramework "github.com/rhobs/kube-events-exporter/test/framework"
+	"github.com/rhobs/kube-events-exporter/test/framework"
 )
 
 var (
-	framework *exporterFramework.Framework
+	f *framework.Framework
 )
 
 func TestMain(m *testing.M) {
@@ -43,7 +43,7 @@ func TestMain(m *testing.M) {
 	flag.Parse()
 
 	var err error
-	framework, err = exporterFramework.NewFramework(*kubeconfig, *exporterImage)
+	f, err = framework.NewFramework(*kubeconfig, *exporterImage)
 	if err != nil {
 		log.Fatalf("setup test framework: %v", err)
 	}
