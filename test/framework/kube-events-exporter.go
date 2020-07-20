@@ -29,7 +29,6 @@ import (
 	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
 
-	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -76,9 +75,9 @@ var (
 // KubeEventsExporter exposes information needed by the framework to interact
 // with kube-events-exporter.
 type KubeEventsExporter struct {
-	Deployment        *appsv1.Deployment
 	EventServerURL    string
 	ExporterServerURL string
+	timeout           time.Duration
 }
 
 // CreateKubeEventsExporter creates kube-events-exporter deployment inside
@@ -116,15 +115,15 @@ func (f *Framework) CreateKubeEventsExporter(t *testing.T) *KubeEventsExporter {
 		// Override kube-events-exporter image with the one specified.
 		deployment.Spec.Template.Spec.Containers[0].Image = f.ExporterImage
 	}
-	deployment = f.CreateDeployment(t, deployment, exporterNamespace)
+	f.CreateDeployment(t, deployment, exporterNamespace)
 
 	exporter := &KubeEventsExporter{
-		Deployment:        deployment,
 		EventServerURL:    eventServerURL,
 		ExporterServerURL: exporterServerURL,
+		timeout:           10 * time.Second,
 	}
 
-	err = f.waitUntilExporterReady(exporter)
+	err = waitUntilExporterReady(exporter)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -132,8 +131,8 @@ func (f *Framework) CreateKubeEventsExporter(t *testing.T) *KubeEventsExporter {
 	return exporter
 }
 
-func (f *Framework) waitUntilExporterReady(exporter *KubeEventsExporter) error {
-	err := wait.Poll(time.Second, f.DefaultTimeout, func() (bool, error) {
+func waitUntilExporterReady(exporter *KubeEventsExporter) error {
+	err := wait.Poll(time.Second, exporter.timeout, func() (bool, error) {
 		resp, err := http.Get(fmt.Sprintf("%s/healthz", exporter.EventServerURL))
 		if err != nil {
 			return false, err
