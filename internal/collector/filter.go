@@ -24,7 +24,7 @@ import (
 )
 
 const (
-	eventReasonMask = "Unknown"
+	eventReasonMask = "ReasonMaskedByExporter"
 )
 
 type eventFilter struct {

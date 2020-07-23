@@ -84,7 +84,7 @@ func (o *Options) AddFlags() {
 	o.flags.IntVar(&o.ExporterPort, "exporter-port", 8081, "Port to expose kube-events-exporter own metrics on.")
 	o.flags.BoolVar(&o.Version, "version", false, "kube-events-exporter version information")
 
-	o.flags.StringArrayVar(&o.ControllersReportingReasons, "controllers-reporting-reasons", []string{ControllerReportingReasonAll}, "List of controllers allowed to report Event reasons. Filtered-out reasons will be replaced by Unknown. Defaults to all controllers.")
+	o.flags.StringArrayVar(&o.ControllersReportingReasons, "controllers-reporting-reasons", []string{ControllerReportingReasonAll}, "List of controllers allowed to report Event reasons. Filtered-out reasons will be replaced by ReasonMaskedByExporter. Defaults to all controllers.")
 	o.flags.StringArrayVar(&o.EventTypes, "event-types", []string{EventTypeAll}, "List of allowed Event types. Defaults to all types.")
 	o.flags.StringArrayVar(&o.InvolvedObjectAPIGroups, "involved-object-api-groups", []string{APIGroupAll}, "List of allowed Event involved object API groups. Defaults to all API groups.")
 	o.flags.StringArrayVar(&o.InvolvedObjectNamespaces, "involved-object-namespaces", []string{metav1.NamespaceAll}, "List of allowed Event involved object namespaces. Defaults to all namespaces.")
