@@ -33,6 +33,7 @@ import (
 // EventCollector is a prometeus.Collector that bundles all the metrics related
 // to Kubernetes Events.
 type EventCollector struct {
+	kclient   kubernetes.Interface
 	metrics   *exporterMetrics
 	lock      sync.Mutex
 	filter    eventFilter
@@ -41,9 +42,10 @@ type EventCollector struct {
 
 // NewEventCollector returns a prometheus.Collector collecting metrics about
 // Kubernetes Events.
-func NewEventCollector(kubeClient kubernetes.Interface, exporterRegistry *prometheus.Registry, opts *options.Options) *EventCollector {
+func NewEventCollector(kclient kubernetes.Interface, exporterRegistry *prometheus.Registry, opts *options.Options) *EventCollector {
 	collector := &EventCollector{
-		lock: sync.Mutex{},
+		kclient: kclient,
+		lock:    sync.Mutex{},
 		filter: eventFilter{
 			creationTimestamp: time.Now(),
 			apiGroups:         opts.InvolvedObjectAPIGroups,
@@ -51,21 +53,10 @@ func NewEventCollector(kubeClient kubernetes.Interface, exporterRegistry *promet
 		metrics: newExporterMetrics(exporterRegistry),
 	}
 
-	for iNs := range opts.InvolvedObjectNamespaces {
-		for iType := range opts.EventTypes {
-			inf := informer.NewInstrumentedEventInformer(
-				kubeClient,
-				metav1.NamespaceAll,
-				collector.metrics.listWatchMetrics,
-				0,
-				cache.Indexers{},
-				func(list *metav1.ListOptions) {
-					filterInvolvedObjectNs(list, opts.InvolvedObjectNamespaces[iNs])
-					filterEventType(list, opts.EventTypes[iType])
-				},
-			)
+	for _, ns := range opts.InvolvedObjectNamespaces {
+		for _, evType := range opts.EventTypes {
+			inf := collector.newEventInformer(ns, evType)
 			inf.AddEventHandler(collector.eventHandler())
-
 			collector.informers = append(collector.informers, inf)
 		}
 	}
@@ -87,6 +78,20 @@ func (collector *EventCollector) Run(stopCh <-chan struct{}) {
 	for _, informer := range collector.informers {
 		go informer.Run(stopCh)
 	}
+}
+
+func (collector *EventCollector) newEventInformer(ns, evType string) cache.SharedIndexInformer {
+	return informer.NewInstrumentedEventInformer(
+		collector.kclient,
+		metav1.NamespaceAll,
+		collector.metrics.listWatchMetrics,
+		0,
+		cache.Indexers{},
+		func(list *metav1.ListOptions) {
+			filterInvolvedObjectNs(list, ns)
+			filterEventType(list, evType)
+		},
+	)
 }
 
 func (collector *EventCollector) eventHandler() cache.ResourceEventHandler {
