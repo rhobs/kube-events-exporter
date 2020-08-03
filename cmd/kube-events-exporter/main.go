@@ -94,9 +94,11 @@ func listenAndServe(mux *http.ServeMux, host string, port int) (func() error, fu
 		return http.Serve(listener, mux)
 	}
 	cleanup := func(error) {
-		err := listener.Close()
-		if err != nil {
-			klog.Errorf("failed to close listener: %v", err)
+		if listener != nil {
+			err := listener.Close()
+			if err != nil {
+				klog.Errorf("failed to close listener: %v", err)
+			}
 		}
 	}
 	return serve, cleanup
