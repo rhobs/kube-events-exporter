@@ -36,7 +36,6 @@ func NewInstrumentedEventInformer(client kubernetes.Interface, namespace string,
 		NewInstrumentedListerWatcher(
 			NewEventListerWatcher(client, namespace, tweakListOptions),
 			metrics,
-			"Event",
 		),
 		&v1.Event{},
 		resyncPeriod,

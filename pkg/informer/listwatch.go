@@ -26,34 +26,46 @@ import (
 
 // ListWatchMetrics stores the pointers of list/watch counter metrics.
 type ListWatchMetrics struct {
-	ListTotal  *prometheus.CounterVec
-	WatchTotal *prometheus.CounterVec
+	listTotal        prometheus.Counter
+	listFailedTotal  prometheus.Counter
+	watchTotal       prometheus.Counter
+	watchFailedTotal prometheus.Counter
 }
 
 // NewListWatchMetrics takes in a prometheus registry and initializes and
-// registers the kube_events_exporter_list_total and
-// kube_events_exporter_watch_total metrics.
-// It returns those registered metrics.
+// registers list and watch metrics.
 func NewListWatchMetrics(registry *prometheus.Registry) *ListWatchMetrics {
 	metrics := &ListWatchMetrics{
-		ListTotal: prometheus.NewCounterVec(
+		listTotal: prometheus.NewCounter(
 			prometheus.CounterOpts{
 				Name: "kube_events_exporter_list_total",
-				Help: "Number of total resource list in kube-events-exporter",
+				Help: "Number of times a list operation was performed",
 			},
-			[]string{"result", "resource"},
 		),
-		WatchTotal: prometheus.NewCounterVec(
+		listFailedTotal: prometheus.NewCounter(
+			prometheus.CounterOpts{
+				Name: "kube_events_exporter_list_failed_total",
+				Help: "Number of times a list operation failed",
+			},
+		),
+		watchTotal: prometheus.NewCounter(
 			prometheus.CounterOpts{
 				Name: "kube_events_exporter_watch_total",
-				Help: "Number of total resource watch in kube-events-exporter",
+				Help: "Number of times a watch operation was performed",
 			},
-			[]string{"result", "resource"},
+		),
+		watchFailedTotal: prometheus.NewCounter(
+			prometheus.CounterOpts{
+				Name: "kube_events_exporter_watch_failed_total",
+				Help: "Number of times a watch operation failed",
+			},
 		),
 	}
 	registry.MustRegister(
-		metrics.ListTotal,
-		metrics.WatchTotal,
+		metrics.listTotal,
+		metrics.listFailedTotal,
+		metrics.watchTotal,
+		metrics.watchFailedTotal,
 	)
 	return metrics
 }
@@ -61,44 +73,44 @@ func NewListWatchMetrics(registry *prometheus.Registry) *ListWatchMetrics {
 // InstrumentedListerWatcher provides the list/watch metrics with a cache
 // ListerWatcher obj and the related resource.
 type InstrumentedListerWatcher struct {
-	lw       cache.ListerWatcher
-	metrics  *ListWatchMetrics
-	resource string
+	lw      cache.ListerWatcher
+	metrics *ListWatchMetrics
 }
 
 // NewInstrumentedListerWatcher returns a new InstrumentedListerWatcher.
-func NewInstrumentedListerWatcher(lw cache.ListerWatcher, metrics *ListWatchMetrics, resource string) cache.ListerWatcher {
+func NewInstrumentedListerWatcher(lw cache.ListerWatcher, metrics *ListWatchMetrics) cache.ListerWatcher {
 	return &InstrumentedListerWatcher{
-		lw:       lw,
-		metrics:  metrics,
-		resource: resource,
+		lw:      lw,
+		metrics: metrics,
 	}
 }
 
 // List is a wrapper func around the cache.ListerWatcher.List func. It
 // increases the success/error counters based on the outcome of the List
 // operation it instruments.
-func (i *InstrumentedListerWatcher) List(options metav1.ListOptions) (res runtime.Object, err error) {
-	res, err = i.lw.List(options)
+func (i *InstrumentedListerWatcher) List(options metav1.ListOptions) (runtime.Object, error) {
+	i.metrics.listTotal.Inc()
+
+	res, err := i.lw.List(options)
 	if err != nil {
-		i.metrics.ListTotal.WithLabelValues("error", i.resource).Inc()
-		return
+		i.metrics.listFailedTotal.Inc()
+		return nil, err
 	}
 
-	i.metrics.ListTotal.WithLabelValues("success", i.resource).Inc()
-	return
+	return res, nil
 }
 
 // Watch is a wrapper func around the cache.ListerWatcher.Watch func. It
 // increases the success/error counters based on the outcome of the Watch
 // operation it instruments.
-func (i *InstrumentedListerWatcher) Watch(options metav1.ListOptions) (res watch.Interface, err error) {
-	res, err = i.lw.Watch(options)
+func (i *InstrumentedListerWatcher) Watch(options metav1.ListOptions) (watch.Interface, error) {
+	i.metrics.watchTotal.Inc()
+
+	res, err := i.lw.Watch(options)
 	if err != nil {
-		i.metrics.WatchTotal.WithLabelValues("error", i.resource).Inc()
-		return
+		i.metrics.watchFailedTotal.Inc()
+		return nil, err
 	}
 
-	i.metrics.WatchTotal.WithLabelValues("success", i.resource).Inc()
-	return
+	return res, nil
 }

@@ -18,11 +18,9 @@ package informer
 
 import (
 	"errors"
-	"reflect"
 	"testing"
 
 	"github.com/prometheus/client_golang/prometheus"
-	dto "github.com/prometheus/client_model/go"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
@@ -30,8 +28,10 @@ import (
 )
 
 const (
-	listTotal  = "kube_events_exporter_list_total"
-	watchTotal = "kube_events_exporter_watch_total"
+	listTotal        = "kube_events_exporter_list_total"
+	listFailedTotal  = "kube_events_exporter_list_failed_total"
+	watchTotal       = "kube_events_exporter_watch_total"
+	watchFailedTotal = "kube_events_exporter_watch_failed_total"
 )
 
 type successListWatch struct{}
@@ -56,75 +56,49 @@ func TestInstrumentedListerWatcher(t *testing.T) {
 	registry := prometheus.NewRegistry()
 	metrics := NewListWatchMetrics(registry)
 
-	successLW := NewInstrumentedListerWatcher(successListWatch{}, metrics, "Event")
-	errorLW := NewInstrumentedListerWatcher(errorListWatch{}, metrics, "Event")
+	successLW := NewInstrumentedListerWatcher(successListWatch{}, metrics)
+	errorLW := NewInstrumentedListerWatcher(errorListWatch{}, metrics)
 
 	testCases := []struct {
 		desc       string
 		lw         cache.ListerWatcher
 		metricName string
-		metric     *dto.Metric
+		count      float64
 		f          func()
 	}{
 		{
 			desc:       "ListSuccess",
 			lw:         successLW,
 			metricName: listTotal,
-			metric: &dto.Metric{
-				Label: []*dto.LabelPair{
-					{Name: stringPtr("resource"), Value: stringPtr("Event")},
-					{Name: stringPtr("result"), Value: stringPtr("success")},
-				},
-				Counter: &dto.Counter{Value: float64Ptr(1)},
-			},
-			f: func() { _, _ = successLW.List(metav1.ListOptions{}) },
+			count:      1,
+			f:          func() { _, _ = successLW.List(metav1.ListOptions{}) },
 		},
 		{
-			desc:       "ListError",
+			desc:       "ListFailed",
 			lw:         errorLW,
-			metricName: listTotal,
-			metric: &dto.Metric{
-				Label: []*dto.LabelPair{
-					{Name: stringPtr("resource"), Value: stringPtr("Event")},
-					{Name: stringPtr("result"), Value: stringPtr("error")},
-				},
-				Counter: &dto.Counter{Value: float64Ptr(1)},
-			},
-			f: func() { _, _ = errorLW.List(metav1.ListOptions{}) },
+			metricName: listFailedTotal,
+			count:      1,
+			f:          func() { _, _ = errorLW.List(metav1.ListOptions{}) },
 		},
 		{
 			desc:       "WatchSuccess",
 			lw:         successLW,
 			metricName: watchTotal,
-			metric: &dto.Metric{
-				Label: []*dto.LabelPair{
-					{Name: stringPtr("resource"), Value: stringPtr("Event")},
-					{Name: stringPtr("result"), Value: stringPtr("success")},
-				},
-				Counter: &dto.Counter{Value: float64Ptr(1)},
-			},
-			f: func() { _, _ = successLW.Watch(metav1.ListOptions{}) },
+			count:      1,
+			f:          func() { _, _ = successLW.Watch(metav1.ListOptions{}) },
 		},
 		{
-			desc:       "WatchError",
+			desc:       "WatchFailed",
 			lw:         errorLW,
-			metricName: watchTotal,
-			metric: &dto.Metric{
-				Label: []*dto.LabelPair{
-					{Name: stringPtr("resource"), Value: stringPtr("Event")},
-					{Name: stringPtr("result"), Value: stringPtr("error")},
-				},
-				Counter: &dto.Counter{Value: float64Ptr(1)},
-			},
-			f: func() { _, _ = errorLW.Watch(metav1.ListOptions{}) },
+			metricName: watchFailedTotal,
+			count:      1,
+			f:          func() { _, _ = errorLW.Watch(metav1.ListOptions{}) },
 		},
 	}
 
 	for _, tc := range testCases {
 		tc := tc
 		t.Run(tc.desc, func(t *testing.T) {
-			t.Parallel()
-
 			tc.f()
 
 			mf, err := registry.Gather()
@@ -135,7 +109,7 @@ func TestInstrumentedListerWatcher(t *testing.T) {
 			for _, family := range mf {
 				if *family.Name == tc.metricName {
 					for _, metric := range family.Metric {
-						if reflect.DeepEqual(tc.metric, metric) {
+						if *metric.Counter.Value == tc.count {
 							return
 						}
 					}
