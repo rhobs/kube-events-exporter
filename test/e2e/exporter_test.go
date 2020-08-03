@@ -22,7 +22,7 @@ import (
 )
 
 func TestExporterRequestsTotal(t *testing.T) {
-	exporter := framework.CreateKubeEventsExporter(t)
+	exporter := f.CreateKubeEventsExporter(t)
 	nbRequests := 10
 
 	for i := 0; i < nbRequests; i++ {
