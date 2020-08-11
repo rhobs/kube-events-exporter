@@ -23,14 +23,10 @@ import (
 	v1 "k8s.io/api/core/v1"
 )
 
-const (
-	eventReasonMask = "ReasonMaskedByExporter"
-)
-
 type eventFilter struct {
-	creationTimestamp           time.Time
-	apiGroups                   []string
-	controllersReportingReasons []string
+	creationTimestamp time.Time
+	apiGroups         []string
+	controllers       []string
 }
 
 func (f *eventFilter) filter(obj interface{}) bool {
@@ -42,16 +38,11 @@ func (f *eventFilter) filter(obj interface{}) bool {
 		return false
 	}
 
-	excludedObjectAPIGroup := !includedObjectAPIGroup(ev, f.apiGroups)
-	if excludedObjectAPIGroup {
+	if !includedObjectAPIGroup(ev, f.apiGroups) {
 		return false
 	}
 
-	if shouldMaskReason(f.controllersReportingReasons, ev) {
-		ev.Reason = eventReasonMask
-	}
-
-	return true
+	return includedController(ev, f.controllers)
 }
 
 func reconciledEvent(ev *v1.Event, t time.Time) bool {
@@ -96,18 +87,18 @@ func includedObjectAPIGroup(ev *v1.Event, groups []string) bool {
 	return false
 }
 
-func shouldMaskReason(controllers []string, ev *v1.Event) bool {
-	if controllers[0] == options.ControllerReportingReasonAll {
-		return false
+func includedController(ev *v1.Event, controllers []string) bool {
+	if controllers[0] == options.ReportingControllerAll {
+		return true
 	}
 
 	for _, c := range controllers {
 		if c == ev.Source.Component {
-			return false
+			return true
 		} else if c == ev.ReportingController {
-			return false
+			return true
 		}
 	}
 
-	return true
+	return false
 }

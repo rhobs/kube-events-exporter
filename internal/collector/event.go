@@ -59,9 +59,9 @@ func NewEventCollector(kubeClient kubernetes.Interface, opts *options.Options) *
 		lock:              sync.Mutex{},
 		informerFactories: factories,
 		filter: eventFilter{
-			creationTimestamp:           time.Now(),
-			apiGroups:                   opts.InvolvedObjectAPIGroups,
-			controllersReportingReasons: opts.ControllersReportingReasons,
+			creationTimestamp: time.Now(),
+			apiGroups:         opts.InvolvedObjectAPIGroups,
+			controllers:       opts.ReportingControllers,
 		},
 	}
 

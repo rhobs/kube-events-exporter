@@ -180,7 +180,7 @@ func TestIncludedObjectAPIGroup(t *testing.T) {
 	}
 }
 
-func TestShouldMaskReason(t *testing.T) {
+func TestIncludedController(t *testing.T) {
 	testCases := []struct {
 		desc        string
 		controllers []string
@@ -189,33 +189,33 @@ func TestShouldMaskReason(t *testing.T) {
 	}{
 		{
 			desc:        "IncludedSource",
-			controllers: []string{"default-scheduler", "kubelet"},
+			controllers: []string{"default-scheduler", "kube-proxy", "kubelet"},
 			event:       &v1.Event{Source: v1.EventSource{Component: "kubelet"}},
-			expect:      false,
+			expect:      true,
 		},
 		{
 			desc:        "ExcludedSource",
-			controllers: []string{"kubelet"},
+			controllers: []string{"kube-proxy", "kubelet"},
 			event:       &v1.Event{Source: v1.EventSource{Component: "default-scheduler"}},
-			expect:      true,
-		},
-		{
-			desc:        "IncludedController",
-			controllers: []string{"kubelet", "default-scheduler"},
-			event:       &v1.Event{ReportingController: "kubelet"},
 			expect:      false,
 		},
 		{
-			desc:        "ExcludedController",
-			controllers: []string{"kubelet"},
-			event:       &v1.Event{ReportingController: "default-scheduler"},
+			desc:        "IncludedController",
+			controllers: []string{"default-scheduler", "kube-proxy", "kubelet"},
+			event:       &v1.Event{ReportingController: "kubelet"},
 			expect:      true,
+		},
+		{
+			desc:        "ExcludedController",
+			controllers: []string{"kube-proxy", "kubelet"},
+			event:       &v1.Event{ReportingController: "default-scheduler"},
+			expect:      false,
 		},
 		{
 			desc:        "IncludeAll",
 			controllers: []string{""},
 			event:       &v1.Event{Source: v1.EventSource{Component: "kubelet"}},
-			expect:      false,
+			expect:      true,
 		},
 	}
 
@@ -223,7 +223,7 @@ func TestShouldMaskReason(t *testing.T) {
 		tc := tc
 		t.Run(tc.desc, func(t *testing.T) {
 			t.Parallel()
-			got := shouldMaskReason(tc.controllers, tc.event)
+			got := includedController(tc.event, tc.controllers)
 			if got != tc.expect {
 				t.Fatalf("expected %t, got %t", tc.expect, got)
 			}
