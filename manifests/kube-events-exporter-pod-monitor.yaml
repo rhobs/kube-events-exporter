@@ -4,7 +4,7 @@ metadata:
   labels:
     app.kubernetes.io/component: events-exporter
     app.kubernetes.io/name: kube-events-exporter
-    app.kubernetes.io/version: 0.0.0
+    app.kubernetes.io/version: 0.1.0
   name: kube-events-exporter
   namespace: default
 spec:
