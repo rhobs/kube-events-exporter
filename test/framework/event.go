@@ -87,6 +87,9 @@ func NewBasicEvent() *v1.Event {
 			Kind:      "Pod",
 			Namespace: "default",
 		},
+		Source: v1.EventSource{
+			Component: "kubelet",
+		},
 		Count:  1,
 		Reason: "test",
 		Type:   v1.EventTypeNormal,

@@ -61,6 +61,7 @@ func NewEventCollector(kubeClient kubernetes.Interface, opts *options.Options) *
 		filter: eventFilter{
 			creationTimestamp: time.Now(),
 			apiGroups:         opts.InvolvedObjectAPIGroups,
+			controllers:       opts.ReportingControllers,
 		},
 	}
 
@@ -154,7 +155,7 @@ func filterInvolvedObjectNs(list *metav1.ListOptions, ns string) {
 }
 
 func filterEventType(list *metav1.ListOptions, eventType string) {
-	if eventType != options.EventTypesAll {
+	if eventType != options.EventTypeAll {
 		list.FieldSelector += ",type=" + eventType
 	}
 }

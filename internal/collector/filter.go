@@ -26,6 +26,7 @@ import (
 type eventFilter struct {
 	creationTimestamp time.Time
 	apiGroups         []string
+	controllers       []string
 }
 
 func (f *eventFilter) filter(obj interface{}) bool {
@@ -37,7 +38,11 @@ func (f *eventFilter) filter(obj interface{}) bool {
 		return false
 	}
 
-	return includedObjectAPIGroup(ev, f.apiGroups)
+	if !includedObjectAPIGroup(ev, f.apiGroups) {
+		return false
+	}
+
+	return includedController(ev, f.controllers)
 }
 
 func reconciledEvent(ev *v1.Event, t time.Time) bool {
@@ -69,12 +74,28 @@ func getEventLatestTimestamp(ev *v1.Event) time.Time {
 }
 
 func includedObjectAPIGroup(ev *v1.Event, groups []string) bool {
-	if groups[0] == options.APIGroupsAll {
+	if groups[0] == options.APIGroupAll {
 		return true
 	}
 
 	for _, group := range groups {
 		if group == ev.InvolvedObject.APIVersion {
+			return true
+		}
+	}
+
+	return false
+}
+
+func includedController(ev *v1.Event, controllers []string) bool {
+	if controllers[0] == options.ReportingControllerAll {
+		return true
+	}
+
+	for _, c := range controllers {
+		if c == ev.Source.Component {
+			return true
+		} else if c == ev.ReportingController {
 			return true
 		}
 	}

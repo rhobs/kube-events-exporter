@@ -86,3 +86,35 @@ func TestEventTypeFilter(t *testing.T) {
 		})
 	}
 }
+
+func TestControllerFilter(t *testing.T) {
+	controller := framework.NewBasicEvent().Source.Component
+
+	testCases := []struct {
+		name       string
+		controller string
+		assert     framework.AssertEventsTotalFunc
+	}{
+		{
+			name:       "Included",
+			controller: controller,
+			assert:     f.AssertEventsTotalPresent,
+		},
+		{
+			name:       "Excluded",
+			controller: fmt.Sprintf("not-%s", controller),
+			assert:     f.AssertEventsTotalAbsent,
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			f := *f
+			f.ExporterArgs = []string{fmt.Sprintf("--reporting-controllers=%s", tc.controller)}
+			exporter := f.CreateKubeEventsExporter(t)
+			event := f.CreateBasicEvent(t)
+			tc.assert(t, exporter, event, 1)
+		})
+	}
+}

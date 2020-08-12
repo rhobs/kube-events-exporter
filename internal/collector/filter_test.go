@@ -179,3 +179,54 @@ func TestIncludedObjectAPIGroup(t *testing.T) {
 		})
 	}
 }
+
+func TestIncludedController(t *testing.T) {
+	testCases := []struct {
+		desc        string
+		controllers []string
+		event       *v1.Event
+		expect      bool
+	}{
+		{
+			desc:        "IncludedSource",
+			controllers: []string{"default-scheduler", "kube-proxy", "kubelet"},
+			event:       &v1.Event{Source: v1.EventSource{Component: "kubelet"}},
+			expect:      true,
+		},
+		{
+			desc:        "ExcludedSource",
+			controllers: []string{"kube-proxy", "kubelet"},
+			event:       &v1.Event{Source: v1.EventSource{Component: "default-scheduler"}},
+			expect:      false,
+		},
+		{
+			desc:        "IncludedController",
+			controllers: []string{"default-scheduler", "kube-proxy", "kubelet"},
+			event:       &v1.Event{ReportingController: "kubelet"},
+			expect:      true,
+		},
+		{
+			desc:        "ExcludedController",
+			controllers: []string{"kube-proxy", "kubelet"},
+			event:       &v1.Event{ReportingController: "default-scheduler"},
+			expect:      false,
+		},
+		{
+			desc:        "IncludeAll",
+			controllers: []string{""},
+			event:       &v1.Event{Source: v1.EventSource{Component: "kubelet"}},
+			expect:      true,
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+			got := includedController(tc.event, tc.controllers)
+			if got != tc.expect {
+				t.Fatalf("expected %t, got %t", tc.expect, got)
+			}
+		})
+	}
+}
