@@ -8,7 +8,7 @@ GOOS?=$(shell uname -s | tr A-Z a-z)
 REPO=github.com/rhobs/kube-events-exporter
 VERSION?=$(shell cat VERSION)
 TAG?=$(shell git rev-parse --short HEAD)
-DOCKER_REPO?=quay.io/dgrisonnet/kube-events-exporter
+IMAGE_REPO?=quay.io/dgrisonnet/kube-events-exporter
 
 BIN_DIR?=$(shell pwd)/tmp/bin
 GOLANGCI_BIN=$(BIN_DIR)/golangci-lint
@@ -54,7 +54,7 @@ generate: manifests
 
 .PHONY: manifests
 manifests: vendor-jsonnet $(GOJSONTOYAML_BIN) $(JSONNET_BIN)
-	./scripts/generate/generate-manifests.sh
+	VERSION=$(VERSION) IMAGE_REPO=$(IMAGE_REPO) ./scripts/generate/generate-manifests.sh
 
 .PHONY: lint
 lint: check-license shellcheck lint-go lint-jsonnet
@@ -87,11 +87,11 @@ kube-events-exporter:
 
 .PHONY: container
 container: build
-	docker build --build-arg ARCH=$(ARCH) --build-arg OS=$(GOOS) -t $(DOCKER_REPO):$(TAG) .
+	docker build --build-arg ARCH=$(ARCH) --build-arg OS=$(GOOS) -t $(IMAGE_REPO):$(TAG) .
 
 .PHONY: container-push
 container-push: container
-	docker push $(DOCKER_REPO):$(TAG)
+	docker push $(IMAGE_REPO):$(TAG)
 
 .PHONY: test
 test: test-unit test-e2e
@@ -103,7 +103,7 @@ test-unit:
 .PHONY: test-e2e
 test-e2e:
 	./scripts/setup-e2e.sh
-	GOOS=$(GOOS) GOARCH=$(GOARCH) go test -v -race -count=1 ./test/e2e/ --kubeconfig=$(KUBECONFIG) --exporter-image=$(DOCKER_REPO):$(TAG)
+	GOOS=$(GOOS) GOARCH=$(GOARCH) go test -v -race -count=1 ./test/e2e/ --kubeconfig=$(KUBECONFIG) --exporter-image=$(IMAGE_REPO):$(TAG)
 
 .PHONY: clean
 clean:
