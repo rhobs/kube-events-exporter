@@ -7,10 +7,6 @@ go: "1.14.x"
 services:
   - docker
 
-branches:
-  only:
-    - master
-
 stages:
   - vendor
   - generate
@@ -57,6 +53,5 @@ jobs:
           script: TAG=$TRAVIS_TAG ./scripts/push-docker-images.sh
           on:
             tags: true
-            all_branches: true
       after_deploy:
         docker logout quay.io

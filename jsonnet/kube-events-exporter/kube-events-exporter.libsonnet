@@ -4,7 +4,7 @@ local k = import 'ksonnet/ksonnet.beta.4/k.libsonnet';
   config+:: {
     namespace: error 'must provide namespace',
     version: error 'must provide version',
-    image: error 'must provide image',
+    imageRepo: error 'must provide image repository',
 
     commonLabels: {
       'app.kubernetes.io/name': 'kube-events-exporter',
@@ -24,7 +24,7 @@ local k = import 'ksonnet/ksonnet.beta.4/k.libsonnet';
 
     namespace:: $.config.namespace,
     version:: $.config.version,
-    image:: $.config.image,
+    image:: $.config.imageRepo + ":" + kee.version,
 
     commonLabels:: $.config.commonLabels,
     selectorLabels:: $.config.selectorLabels,
