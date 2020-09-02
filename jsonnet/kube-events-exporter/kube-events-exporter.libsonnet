@@ -24,7 +24,7 @@ local k = import 'ksonnet/ksonnet.beta.4/k.libsonnet';
 
     namespace:: $.config.namespace,
     version:: $.config.version,
-    image:: $.config.imageRepo + ":" + kee.version,
+    image:: $.config.imageRepo + ":v" + kee.version,
 
     commonLabels:: $.config.commonLabels,
     selectorLabels:: $.config.selectorLabels,
