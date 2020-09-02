@@ -7,11 +7,6 @@ go: "1.14.x"
 services:
   - docker
 
-branches:
-  only:
-    - master
-    - /^v.*$/
-
 stages:
   - vendor
   - generate
