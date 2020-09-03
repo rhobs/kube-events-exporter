@@ -4,7 +4,7 @@ metadata:
   labels:
     app.kubernetes.io/component: events-exporter
     app.kubernetes.io/name: kube-events-exporter
-    app.kubernetes.io/version: v0.1.0
+    app.kubernetes.io/version: 0.1.0
   name: kube-events-exporter
 roleRef:
   apiGroup: rbac.authorization.k8s.io
