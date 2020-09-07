@@ -29,8 +29,6 @@ import (
 	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
 
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
@@ -39,37 +37,9 @@ const (
 	clusterRoleManifest        = "../testdata/kube-events-exporter-cluster-role.yaml"
 	clusterRoleBindingManifest = "../testdata/kube-events-exporter-cluster-role-binding.yaml"
 	deploymentManifest         = "../testdata/kube-events-exporter-deployment.yaml"
+	serviceManifest            = "../testdata/kube-events-exporter-service.yaml"
 
 	exporterNamespace = "default"
-)
-
-var (
-	exporterService = &v1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Labels: map[string]string{
-				"app.kubernetes.io/component": "events-exporter",
-				"app.kubernetes.io/name":      "kube-events-exporter",
-			},
-			Name:      "kube-events-exporter",
-			Namespace: exporterNamespace,
-		},
-		Spec: v1.ServiceSpec{
-			Selector: map[string]string{
-				"app.kubernetes.io/component": "events-exporter",
-				"app.kubernetes.io/name":      "kube-events-exporter",
-			},
-			Ports: []v1.ServicePort{
-				{
-					Name: "event",
-					Port: 8080,
-				},
-				{
-					Name: "exporter",
-					Port: 8081,
-				},
-			},
-		},
-	}
 )
 
 // KubeEventsExporter exposes information needed by the framework to interact
@@ -101,6 +71,10 @@ func (f *Framework) CreateKubeEventsExporter(t *testing.T) *KubeEventsExporter {
 	}
 	f.CreateClusterRoleBinding(t, crb)
 
+	exporterService, err := MakeService(serviceManifest)
+	if err != nil {
+		t.Fatal(err)
+	}
 	f.CreateService(t, exporterService, exporterService.Namespace)
 
 	serviceURL := fmt.Sprintf("http://localhost:8001/api/v1/namespaces/%s/services/%s", exporterService.Namespace, exporterService.ObjectMeta.Name)
