@@ -35,10 +35,10 @@ import (
 )
 
 const (
-	serviceAccountManifest     = "../../manifests/kube-events-exporter-service-account.yaml"
-	clusterRoleManifest        = "../../manifests/kube-events-exporter-cluster-role.yaml"
-	clusterRoleBindingManifest = "../../manifests/kube-events-exporter-cluster-role-binding.yaml"
-	deploymentManifest         = "../../manifests/kube-events-exporter-deployment.yaml"
+	serviceAccountManifest     = "../testdata/kube-events-exporter-service-account.yaml"
+	clusterRoleManifest        = "../testdata/kube-events-exporter-cluster-role.yaml"
+	clusterRoleBindingManifest = "../testdata/kube-events-exporter-cluster-role-binding.yaml"
+	deploymentManifest         = "../testdata/kube-events-exporter-deployment.yaml"
 
 	exporterNamespace = "default"
 )

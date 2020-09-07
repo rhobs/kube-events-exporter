@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/component: events-exporter
+    app.kubernetes.io/name: kube-events-exporter
+  name: kube-events-exporter
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: events-exporter
+      app.kubernetes.io/name: kube-events-exporter
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: events-exporter
+        app.kubernetes.io/name: kube-events-exporter
+    spec:
+      containers:
+      - image: quay.io/dgrisonnet/kube-events-exporter:latest
+        name: kube-events-exporter
+        ports:
+        - containerPort: 8080
+          name: event
+        - containerPort: 8081
+          name: exporter
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+      serviceAccountName: kube-events-exporter
