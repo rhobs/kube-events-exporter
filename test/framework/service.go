@@ -18,8 +18,12 @@ package framework
 
 import (
 	"context"
+	"io/ioutil"
+	"path/filepath"
 	"testing"
 
+	"github.com/ghodss/yaml"
+	"github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -39,6 +43,22 @@ func (f *Framework) CreateService(t *testing.T, service *v1.Service, ns string) 
 	})
 
 	return service
+}
+
+// MakeService creates a service object from yaml manifest.
+func MakeService(manifestPath string) (*v1.Service, error) {
+	manifest, err := ioutil.ReadFile(filepath.Clean(manifestPath))
+	if err != nil {
+		return nil, errors.Wrapf(err, "read service manifest %s", manifestPath)
+	}
+
+	service := v1.Service{}
+	err = yaml.Unmarshal(manifest, &service)
+	if err != nil {
+		return nil, errors.Wrapf(err, "unmarshal service manifest %s", manifestPath)
+	}
+
+	return &service, nil
 }
 
 // DeleteService deletes the given service.
