@@ -75,7 +75,7 @@ The exporter supports Kubernetes clusters starting from v1.17.0+.
 To try the exporter in a Kubernetes cluster, you can run the following command:
 
 ```sh
-kubectl create -f manifests/
+kubectl create -f examples/basic
 ```
 
 This will create the most basic configuration for the exporter to run in the

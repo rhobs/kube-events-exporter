@@ -9,15 +9,21 @@ set -u
 # Make sure to use project tooling
 PATH="$(pwd)/tmp/bin:${PATH}"
 
-# Make sure to start with a clean 'manifests' dir
-rm -rf manifests
-mkdir manifests
+vendor="scripts/generate/vendor"
 
-jsonnet_path="scripts/generate"
-# Calling gojsontoyaml is optional, but we would like to generate yaml, not json
-jsonnet -J "${jsonnet_path}/vendor" -m manifests "${jsonnet_path}/kube-events-exporter.jsonnet" \
-    --ext-str VERSION --ext-str IMAGE_REPO \
-    | xargs -I{} sh -c 'cat {} | gojsontoyaml > {}.yaml' -- {}
+find examples -name '*.jsonnet' | while read -r jsonnet_path; do
+    manifests_dir="${jsonnet_path%.*}"
 
-# Make sure to remove json files
-find manifests -type f ! -name '*.yaml' -delete
+    # Make sure to start with a clean 'manifests' dir
+    rm -rf "$manifests_dir"
+    mkdir "$manifests_dir"
+
+    # Calling gojsontoyaml is optional, but we would like to generate yaml, not json
+    jsonnet -J "$vendor" -m "$manifests_dir" "$jsonnet_path" \
+        --ext-str VERSION --ext-str IMAGE_REPO \
+        | xargs -I{} sh -c 'cat {} | gojsontoyaml > {}.yaml' -- {}
+
+    # Make sure to remove json files
+    find "$manifests_dir" -type f ! -name '*.yaml' -delete
+done
+
