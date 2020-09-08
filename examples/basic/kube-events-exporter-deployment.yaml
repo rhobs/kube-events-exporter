@@ -21,7 +21,8 @@ spec:
         app.kubernetes.io/version: 0.1.0
     spec:
       containers:
-      - image: quay.io/dgrisonnet/kube-events-exporter:v0.1.0
+      - args: []
+        image: quay.io/dgrisonnet/kube-events-exporter:v0.1.0
         name: kube-events-exporter
         ports:
         - containerPort: 8080

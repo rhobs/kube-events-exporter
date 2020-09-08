@@ -6,6 +6,11 @@ local k = import 'ksonnet/ksonnet.beta.4/k.libsonnet';
     version: error 'must provide version',
     imageRepo: error 'must provide image repository',
 
+    eventTypes: [],
+    involvedObjectAPIGroups: [],
+    involvedObjectNamespaces: [],
+    reportingControllers: [],
+
     commonLabels: {
       'app.kubernetes.io/name': 'kube-events-exporter',
       'app.kubernetes.io/version': $.config.version,
@@ -68,7 +73,13 @@ local k = import 'ksonnet/ksonnet.beta.4/k.libsonnet';
         container.withPorts([
           containerPort.newNamed(8080, 'event'),
           containerPort.newNamed(8081, 'exporter'),
-        ]);
+        ]) +
+        container.withArgs(
+          ['--event-types=' + evType for evType in $.config.eventTypes] +
+          ['--involved-object-api-groups=' + apiGroup for apiGroup in $.config.involvedObjectAPIGroups] +
+          ['--involved-object-namespaces=' + ns for ns in $.config.involvedObjectNamespaces] +
+          ['--reporting-controllers=' + controller for controller in $.config.reportingControllers],
+        );
 
       deployment.new('kube-events-exporter', 1, exporterContainer, kee.commonLabels) +
       deployment.mixin.metadata.withNamespace(kee.namespace) +

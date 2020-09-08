@@ -64,6 +64,8 @@ would have the following flags set:
 --reporting-controllers=kubelet
 ```
 
+A more concrete example limiting metrics to only native Kubernetes resource can be found under the examples directory with the [limited deployment](./examples/limited/kube-events-exporter-deployment.yaml).
+
 ## Prerequisites
 
 The exporter supports Kubernetes clusters starting from v1.17.0+.
