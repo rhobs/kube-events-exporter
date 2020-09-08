@@ -47,7 +47,7 @@ func NewFramework(kubeconfig, exporterImage string) (*Framework, error) {
 
 	framework := &Framework{
 		KubeClient:     kubeClient,
-		DefaultTimeout: 5 * time.Second,
+		DefaultTimeout: 7 * time.Second,
 		ExporterImage:  exporterImage,
 	}
 
