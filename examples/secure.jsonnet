@@ -74,6 +74,20 @@ local tlsCipherSuites = [
         ],
       },
     },
+    clusterRole+: {
+      rules+: [
+        {
+          apiGroups: ['authentication.k8s.io'],
+          resources: ['tokenreviews'],
+          verbs: ['create'],
+        },
+        {
+          apiGroups: ['authorization.k8s.io'],
+          resources: ['subjectaccessreviews'],
+          verbs: ['create'],
+        },
+      ],
+    },
   },
 
   'kube-events-exporter-cluster-role-binding': kee.clusterRoleBinding,
