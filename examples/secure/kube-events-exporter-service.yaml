@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/component: events-exporter
+    app.kubernetes.io/name: kube-events-exporter
+    app.kubernetes.io/version: 0.1.0
+  name: kube-events-exporter
+  namespace: default
+spec:
+  clusterIP: None
+  ports:
+  - name: https-event
+    port: 8443
+    targetPort: https-event
+  - name: https-exporter
+    port: 9443
+    targetPort: https-exporter
+  selector:
+    app.kubernetes.io/component: events-exporter
+    app.kubernetes.io/name: kube-events-exporter
