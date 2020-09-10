@@ -118,5 +118,40 @@ local k = import 'ksonnet/ksonnet.beta.4/k.libsonnet';
       serviceAccount.new('kube-events-exporter') +
       serviceAccount.mixin.metadata.withLabels(kee.commonLabels) +
       serviceAccount.mixin.metadata.withNamespace(kee.namespace),
+
+    service:
+      local service = k.core.v1.service;
+      local servicePort = k.core.v1.service.mixin.spec.portsType;
+
+      service.new('kube-events-exporter', kee.selectorLabels, [
+        servicePort.newNamed('event', 8080, 'event'),
+        servicePort.newNamed('exporter', 8081, 'exporter'),
+      ]) +
+      service.mixin.metadata.withLabels(kee.commonLabels) +
+      service.mixin.metadata.withNamespace(kee.namespace) +
+      service.mixin.spec.withClusterIp('None'),
+
+    serviceMonitor: {
+      apiVersion: 'monitoring.coreos.com/v1',
+      kind: 'ServiceMonitor',
+      metadata: {
+        labels: kee.commonLabels,
+        name: 'kube-events-exporter',
+        namespace: kee.namespace,
+      },
+      spec: {
+        endpoints: [
+          {
+            port: 'event',
+          },
+          {
+            port: 'exporter',
+          },
+        ],
+        selector: {
+          matchLabels: kee.selectorLabels,
+        },
+      },
+    },
   },
 }
