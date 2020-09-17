@@ -3,6 +3,15 @@
   "dependencies": [
     {
       "source": {
+        "git": {
+          "remote": "https://github.com/prometheus-operator/kube-prometheus",
+          "subdir": "jsonnet/kube-prometheus/kube-rbac-proxy"
+        }
+      },
+      "version": "master"
+    },
+    {
+      "source": {
         "local": {
           "directory": "../../jsonnet/kube-events-exporter"
         }

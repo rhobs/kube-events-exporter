@@ -14,6 +14,16 @@
     },
     {
       "source": {
+        "git": {
+          "remote": "https://github.com/prometheus-operator/kube-prometheus",
+          "subdir": "jsonnet/kube-prometheus/kube-rbac-proxy"
+        }
+      },
+      "version": "a6e6853f62cb83cec3902a516afce9923e6685b4",
+      "sum": "Kk2h8TedjhZrx9eokNSxMkipasxf8ZdkhVxwTop9TYU="
+    },
+    {
+      "source": {
         "local": {
           "directory": "../../jsonnet/kube-events-exporter"
         }
